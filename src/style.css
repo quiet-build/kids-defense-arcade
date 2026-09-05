@@ -1,15 +1,15 @@
 :root {
-  color-scheme: dark;
-  font-family: Inter, "Arial Rounded MT Bold", Arial, sans-serif;
-  --ink: #eef5ff;
-  --muted: #a8b4c8;
-  --panel: rgba(15, 22, 36, 0.88);
-  --line: rgba(255, 255, 255, 0.13);
-  --orange: #ff9d42;
-  --green: #4fd18b;
-  --blue: #58b9ff;
-  --red: #ff5d6c;
-  --shadow: 0 18px 38px rgba(0, 0, 0, 0.28);
+  color-scheme: light;
+  font-family: "Avenir Next", Avenir, Inter, system-ui, sans-serif;
+  --ink: #294d3b;
+  --muted: #667064;
+  --panel: rgba(255, 250, 240, 0.94);
+  --line: #cbd2c1;
+  --orange: #d47b5f;
+  --green: #548267;
+  --blue: #456f8a;
+  --red: #b65d49;
+  --shadow: 0 18px 38px rgba(38, 69, 49, 0.1);
 }
 
 * {
@@ -21,9 +21,9 @@ body {
   min-height: 100vh;
   color: var(--ink);
   background:
-    radial-gradient(circle at 18% 12%, rgba(255, 157, 66, 0.22), transparent 25%),
-    radial-gradient(circle at 82% 16%, rgba(88, 185, 255, 0.18), transparent 24%),
-    linear-gradient(135deg, #111827 0%, #182235 52%, #20251d 100%);
+    radial-gradient(circle at 18% 12%, rgba(239, 176, 151, 0.24), transparent 25%),
+    radial-gradient(circle at 82% 16%, rgba(199, 180, 220, 0.22), transparent 24%),
+    #f5f2e8;
 }
 
 .app {
@@ -40,15 +40,16 @@ body {
   margin-bottom: 14px;
   padding: 16px 18px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 18px;
   background: var(--panel);
   box-shadow: var(--shadow);
 }
 
 h1 {
   margin: 0;
+  color: #174e3b;
   font-size: clamp(1.75rem, 3vw, 2.55rem);
-  letter-spacing: 0;
+  letter-spacing: -0.035em;
 }
 
 p {
@@ -72,8 +73,8 @@ label {
   min-height: 42px;
   padding: 8px 10px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  background: rgba(157, 195, 165, 0.14);
   font-weight: 800;
 }
 
@@ -83,11 +84,11 @@ button {
 }
 
 select {
-  border: 1px solid rgba(88, 185, 255, 0.55);
-  border-radius: 6px;
+  border: 1px solid #9bad9a;
+  border-radius: 9px;
   padding: 7px 10px;
   color: var(--ink);
-  background: #111827;
+  background: #fffaf0;
   font-weight: 800;
 }
 
@@ -100,18 +101,18 @@ select {
 #startButton {
   min-height: 44px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 10px 18px;
-  color: #101827;
-  background: var(--orange);
+  color: #fffaf0;
+  background: #2f6b4f;
   font-weight: 900;
   cursor: pointer;
-  box-shadow: 0 5px 0 #b45d1c;
+  box-shadow: 0 5px 0 #174e3b;
 }
 
 #startButton:active {
   transform: translateY(3px);
-  box-shadow: 0 2px 0 #b45d1c;
+  box-shadow: 0 2px 0 #174e3b;
 }
 
 .game-shell {
@@ -124,7 +125,7 @@ select {
   min-height: 640px;
   padding: 14px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 18px;
   background: var(--panel);
   box-shadow: var(--shadow);
 }
@@ -137,8 +138,8 @@ select {
   margin-bottom: 10px;
   padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  background: rgba(157, 195, 165, 0.12);
 }
 
 .stat span {
@@ -165,10 +166,10 @@ select {
   width: 100%;
   min-height: 67px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 13px;
   padding: 9px 10px;
   color: var(--ink);
-  background: rgba(255, 255, 255, 0.07);
+  background: #fffaf0;
   text-align: left;
   font-weight: 900;
   cursor: pointer;
@@ -187,22 +188,22 @@ select {
 
 .tool-card.active {
   border-color: var(--green);
-  background: rgba(79, 209, 139, 0.18);
+  background: rgba(157, 195, 165, 0.28);
 }
 
 .tool-card.danger.active {
   border-color: var(--red);
-  background: rgba(255, 93, 108, 0.16);
+  background: rgba(239, 176, 151, 0.28);
 }
 
 .message {
   min-height: 78px;
   margin-top: 14px;
   padding: 12px;
-  border: 1px solid rgba(255, 157, 66, 0.38);
-  border-radius: 8px;
-  color: #ffe3b9;
-  background: rgba(255, 157, 66, 0.12);
+  border: 1px solid #d9b783;
+  border-radius: 13px;
+  color: #65482f;
+  background: rgba(241, 212, 154, 0.28);
   font-weight: 800;
 }
 
@@ -212,10 +213,17 @@ select {
   aspect-ratio: 3 / 2;
   min-height: 430px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 18px;
   background: #202822;
   box-shadow: var(--shadow);
   overflow: hidden;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 3px solid #a84f38;
+  outline-offset: 3px;
 }
 
 #game canvas {

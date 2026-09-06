@@ -1,4 +1,12 @@
 import {test,expect} from "@playwright/test";
+
+test("embedded mount leaves the main landmark to the host, standalone retains one", async ({ page }) => {
+  await page.goto("/");
+  await expect.poll(() => page.evaluate(() => (window).ready.length)).toBe(1);
+  await expect(page.locator("pma-defense-arcade").locator("main, [role=main]")).toHaveCount(0);
+  await page.goto("http://127.0.0.1:5301/");
+  await expect(page.locator("main")).toHaveCount(1);
+});
 test.use({hasTouch:true});
 const tag="pma-defense-arcade";
 test("renderer failure releases allocated resources and reconnect recovers", async ({page}) => {
@@ -173,7 +181,7 @@ test("real controls render within 900, 390 and 320 pixel hosts",async({page},inf
 test("safe setup error and reconnect recovery",async({page})=>{
   await page.addInitScript(()=>{
     const create=document.createElement.bind(document);window.failSetup=true;
-    document.createElement=function(name,...args){if(name==="main"&&window.failSetup)throw Error("private setup detail");return create(name,...args)};
+    document.createElement=function(name,...args){if(name==="div"&&window.failSetup)throw Error("private setup detail");return create(name,...args)};
   });
   await page.goto("/");
   await expect.poll(()=>page.evaluate(()=>window.failures)).toEqual([{gameId:tag.slice(4),message:"Unable to start game. Please try again."}]);

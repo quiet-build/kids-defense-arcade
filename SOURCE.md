@@ -21,3 +21,5 @@ This project is a Vite + Phaser tower-defense browser game for kids.
 - `playwright.config.js` selects existing standalone smoke tests on 5175; `playwright.component.config.js` serially uses 5301/5302. Both honor PLAYWRIGHT_EXECUTABLE_PATH. `pnpm test:component` builds and runs the component suite. `pnpm exec playwright test --config playwright.config.js` runs standalone smoke. There are no existing unit tests.
 - `package.json`, `pnpm-lock.yaml`, and `pnpm-workspace.yaml` define scripts, dependency versions, and approved dependency build scripts.
 - `.github/workflows/pages.yml` builds and publishes through GitHub Actions using the same pnpm 11.25.0 version as `package.json`.
+
+Standalone index.html owns the one main landmark. ui.html and the native component mount are neutral div containers, so embedding does not introduce nested or duplicate main landmarks. Component regression covers standalone and embedded modes.

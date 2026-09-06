@@ -8,7 +8,7 @@ class ArcadeElement extends HTMLElement {
     try {
       const style = document.createElement('style');
       style.textContent = css.replace(':root', ':host').replace(/\bbody\s*\{/g, ':host{').replaceAll('@media', '@container') + ':host{display:block;min-width:0;min-height:0;container-type:inline-size}';
-      const container = document.createElement('main');
+      const container = document.createElement('div');
       shadow.replaceChildren(style, container);
       this.session = mount(container, () => send('pma-ready'), detail => send('pma-round-ended', detail));
     } catch (error) {

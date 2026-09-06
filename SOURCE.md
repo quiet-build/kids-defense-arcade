@@ -4,14 +4,19 @@ This project is a Vite + Phaser tower-defense browser game for kids.
 
 ## Runtime Files
 
-- `src/main.js` owns Phaser scene setup, game state, enemy waves, tower placement, projectiles, UI wiring, and win/loss flow. If this grows further, split by gameplay responsibility before adding unrelated behavior.
+- `src/main.js` is the standalone entry; it imports the existing page CSS and calls the shared mount.
+- `src/mount.js` owns one session's Phaser scene, game state, enemy waves, tower placement, projectiles, UI wiring and win/loss flow. Its local closures prevent cross-session state. `mount(container, ready?, result?)` returns `pause()` and idempotent `dispose()`. A small native Pause/Resume button freezes the existing scene; accumulated active-frame time keeps construction, projectiles and spawns aligned after resume. Restart cancels pending scene timers. Result mode captures the started difficulty, theme and endless choice; it does not read a later setup selection. No new scoring system was added: real terminal events report won/lost and reached wave.
+- `src/component.js` registers `pma-defense-arcade` with open Shadow DOM, fresh sessions on connection and disposal on removal. Public `pause()` retains a visible Resume control. `pma-ready`, `pma-error` and `pma-round-ended` bubble/compose with `gameId: 'defense-arcade'`. Errors expose only `Unable to start game. Please try again.`. CSS is shadow-scoped and uses host-width container queries. No component service worker.
+- `src/runtime.js` owns the Phaser 3.90 lifetime boundary. A SessionGame subclass wraps only the synchronous `super.start()` call, restores pre-existing window.onblur/onfocus and document.addEventListener in finally, and removes Phaser's otherwise unowned document visibility listener. The mount provides abortable pause listeners instead. Phaser window input is disabled; mouse/touch target only the game area. This game has no audio and uses Phaser noAudio.
+- Disposal stops scenes and requests game destruction, then queues the public Game.step to complete pending destruction without relying on another animation frame. Pending-boot disposal waits for READY before that microtask. Tests verify actual GL buffer deletion; Phaser deletes renderer resources but does not explicitly lose the browser-owned raw GL context. Do not replace this evidence with isContextLost(). Recheck installed Phaser core/Game.js, core/VisibilityHandler.js and renderer/webgl/WebGLRenderer.js when upgrading; never keep temporary DOM interception active across async boundaries.
 - `src/style.css` owns the page layout, game controls, and visual theme.
-- `index.html` provides the game canvas host and control markup.
+- `src/ui.html` holds the existing canvas host/control markup shared by both entries. `index.html` provides the standalone app host.
 
 ## Tests And Tooling
 
 - `tests/smoke.spec.js` checks the browser game starts and can be exercised by Playwright.
-- `vite.config.js` configures the Vite build.
-- `playwright.config.js` configures browser tests.
+- `tests/component.spec.js` covers real start/build/pause/resume/restart, native Space, host input, actual terminal loss/result mode, setup-error recovery, 900/390/320 widths, pending-boot reconnect, ten remounts, stopped detached draws/listeners and frame-starved renderer teardown. `tests/component-host.mjs` serves a separate origin with real host controls. Local screenshots are ignored outputs.
+- `vite.config.js` builds standalone HTML plus stable component.js and shared assets, retaining the existing VITE_BASE override used by Pages CI and defaulting to relative assets; preview CORS supports the cross-origin harness. `public/_headers` supplies production CORS.
+- `playwright.config.js` selects existing standalone smoke tests on 5175; `playwright.component.config.js` serially uses 5301/5302. Both honor PLAYWRIGHT_EXECUTABLE_PATH. `pnpm test:component` builds and runs the component suite. `pnpm exec playwright test --config playwright.config.js` runs standalone smoke. There are no existing unit tests.
 - `package.json`, `pnpm-lock.yaml`, and `pnpm-workspace.yaml` define scripts, dependency versions, and approved dependency build scripts.
 - `.github/workflows/pages.yml` builds and publishes through GitHub Actions using the same pnpm 11.25.0 version as `package.json`.

@@ -98,7 +98,8 @@ select {
   accent-color: var(--green);
 }
 
-#startButton {
+#startButton,
+#pauseButton {
   min-height: 44px;
   border: 0;
   border-radius: 12px;
@@ -114,6 +115,8 @@ select {
   transform: translateY(3px);
   box-shadow: 0 2px 0 #174e3b;
 }
+
+#pauseButton:disabled { opacity: 0.5; cursor: default; }
 
 .game-shell {
   display: grid;

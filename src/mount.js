@@ -729,6 +729,7 @@ function applyThemeUi() {
 let disposeRuntime = () => {};
 const canvasHost = container.querySelector("#game");
 canvasHost.tabIndex = 0;
+try {
 new SessionGame({
   autoFocus: false,
   audio: { noAudio: true },
@@ -745,6 +746,12 @@ new SessionGame({
   },
   scene: [BaseDefenseScene],
 });
+} catch (error) {
+  disposed = true;
+  listeners.abort();
+  try { disposeRuntime(true); } catch (cleanupError) { console.error(cleanupError); }
+  throw error;
+}
 
 function pause() {
   if (disposed || !sceneRef?.running || paused) return;

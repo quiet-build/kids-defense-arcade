@@ -20,7 +20,23 @@ export class SessionGame extends Phaser.Game {
 }
 
 export function ownRuntime(game) {
-  return () => {
+  let disposed = false;
+  return (failedBoot = false) => {
+    if (disposed) return;
+    disposed = true;
+    if (failedBoot && !game.scene.isBooted) {
+      // Renderer setup can throw before BOOT/READY. SceneManager.destroy()
+      // requires its not-yet-created system scene, so release only owned parts.
+      game.events.emit(Phaser.Core.Events.DESTROY);
+      game.events.removeAllListeners();
+      game.renderer?.destroy();
+      if (game.canvas) {
+        Phaser.Display.Canvas.CanvasPool.remove(game.canvas);
+        game.canvas.remove();
+      }
+      game.loop.destroy();
+      return;
+    }
     game.input?.keyboard?.stopListeners();
     game.sound?.stopAll();
     for (const scene of game.scene.getScenes(false)) {

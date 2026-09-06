@@ -1,6 +1,52 @@
 import {test,expect} from "@playwright/test";
 test.use({hasTouch:true});
 const tag="pma-defense-arcade";
+test("renderer failure releases allocated resources and reconnect recovers", async ({page}) => {
+ const errors=[];page.on("pageerror",error=>errors.push(error.message));
+ await page.addInitScript(()=>{
+   window.contexts=[];const Audio=window.AudioContext;
+   window.AudioContext=class extends Audio{constructor(...args){super(...args);window.contexts.push(this)}};
+ });
+ await initialized(page);
+ await page.evaluate(tag=>document.querySelector(tag).remove(),tag);
+ await expect.poll(()=>page.evaluate(()=>window.contexts.every(c=>c.state==="closed"))).toBe(true);
+ await page.evaluate(tag=>{
+   window.contexts=[];window.ready=[];window.failures=[];window.failureSignals=[];
+   const add=EventTarget.prototype.addEventListener;
+   EventTarget.prototype.addEventListener=function(type,listener,options){
+     if(options?.signal)window.failureSignals.push(options.signal);
+     return add.call(this,type,listener,options);
+   };
+   window.originalGetContext=HTMLCanvasElement.prototype.getContext;
+   HTMLCanvasElement.prototype.getContext=function(type,...args){
+     if(type==="webgl"||type==="webgl2"||type==="experimental-webgl"){
+       window.failedCanvas=this;throw Error("renderer unavailable");
+     }
+     return window.originalGetContext.call(this,type,...args);
+   };
+   window.failedElement=document.createElement(tag);
+   document.querySelector("#player").append(window.failedElement);
+   EventTarget.prototype.addEventListener=add;
+ },tag);
+ await expect.poll(()=>page.evaluate(()=>window.failures)).toEqual([{gameId:tag.slice(4),message:"Unable to start game. Please try again."}]);
+ expect(await page.evaluate(()=>window.contexts.length)).toBe(0);
+ await expect.poll(()=>page.evaluate(()=>window.contexts.every(c=>c.state==="closed"))).toBe(true);
+ expect(await page.evaluate(()=>window.failureSignals.length)).toBeGreaterThan(0);
+ expect(await page.evaluate(()=>window.failureSignals.every(signal=>signal.aborted))).toBe(true);
+ expect(await page.evaluate(()=>window.failedCanvas.isConnected)).toBe(false);
+ expect(await page.evaluate(()=>window.ready)).toEqual([]);
+ await page.evaluate(()=>{
+   window.failedElement.remove();
+   HTMLCanvasElement.prototype.getContext=window.originalGetContext;
+   document.querySelector("#player").append(window.failedElement);
+ });
+ await expect.poll(()=>page.evaluate(()=>window.ready.length)).toBe(1);
+ await start(page.locator(tag),page);
+ await assertPlaying(page.locator(tag));
+ await page.evaluate(tag=>document.querySelector(tag).remove(),tag);
+ await expect.poll(()=>page.evaluate(()=>window.contexts.every(c=>c.state==="closed"))).toBe(true);
+ expect(errors).toEqual([]);
+});
 test("disconnect during boot cancels the old session before reconnect",async({page})=>{
  const errors=[];page.on("pageerror",e=>errors.push(e.message));
  await initialized(page);

@@ -16,7 +16,7 @@ jobs:
       support-sha: 8286c17efa989220f88548ffb901f742e3302f3e
       cloudflare-project-name: kids-defense-arcade
       cloudflare-domain: defense.playminiarcade.com
-      prebuild-command: ": # No existing unit-test suite; build and browser gates follow"
+      prebuild-command: "node --test tests/redirect.test.mjs"
       postbuild-command: "pnpm exec playwright test --config playwright.component.config.js && pnpm exec playwright test --config playwright.config.js"
       pages-base: /kids-defense-arcade/
     secrets:

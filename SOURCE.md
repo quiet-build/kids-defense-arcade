@@ -20,6 +20,7 @@ This project is a Vite + Phaser tower-defense browser game for kids.
 - `vite.config.js` builds standalone HTML plus stable component.js and shared assets, retaining the existing VITE_BASE override used by Pages CI and defaulting to relative assets; preview CORS supports the cross-origin harness. `public/_headers` supplies production CORS.
 - `playwright.config.js` selects existing standalone smoke tests on 5175; `playwright.component.config.js` serially uses 5301/5302. Both honor PLAYWRIGHT_EXECUTABLE_PATH. `pnpm test:component` builds and runs the component suite. `pnpm exec playwright test --config playwright.config.js` runs standalone smoke. There are no existing unit tests.
 - `package.json`, `pnpm-lock.yaml`, and `pnpm-workspace.yaml` define scripts, dependency versions, and approved dependency build scripts. Wrangler 4.129.0 is an explicit deployment dependency; pnpm permits only the required esbuild and workerd install scripts.
+- `functions/_middleware.ts` redirects only the exact legacy `defense.playminiarcade.com` host to the fixed main-site game route. Pages, preview and local hosts pass through to static assets. Its native Node check runs in the deployment source gate.
 - `.github/workflows/deploy.yml` owns both Cloudflare component and existing GitHub Pages publication.
 
 Standalone index.html owns the one main landmark. ui.html and the native component mount are neutral div containers, so embedding does not introduce nested or duplicate main landmarks. Component regression covers standalone and embedded modes.

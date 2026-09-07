@@ -6,6 +6,13 @@ export function mount(container, ready = () => {}, result = () => {}) {
 container.innerHTML = markup;
 const listeners = new AbortController();
 const listen = (element, name, handler) => element.addEventListener(name, handler, { signal: listeners.signal });
+container.addEventListener('pointerdown', event => {
+  const button = event.target instanceof Element ? event.target.closest('button:not(:disabled)') : null;
+  if (button && event.button === 0) {
+    event.preventDefault();
+    button.focus({ preventScroll: true });
+  }
+}, { capture: true, signal: listeners.signal });
 let disposed = false;
 let paused = false;
 let elapsed = 0;

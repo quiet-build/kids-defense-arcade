@@ -15,6 +15,9 @@ This project is a Vite + Phaser tower-defense browser game for kids.
 
 ## Tests And Tooling
 
+- Button pointer capture explicitly focuses the selected button and prevents the default focus change, so Safari tower selection after a board click does not trigger focusout pausing. The abortable listener belongs to `src/mount.js` and is removed on disposal.
+- `tests/controls.component.spec.js` runs this board/tool/host-pause/Resume sequence in WebKit. The component config includes it, and deployment installs WebKit before the browser gate (`pnpm exec playwright install webkit` locally).
+
 - `tests/smoke.spec.js` checks the browser game starts and can be exercised by Playwright.
 - `tests/component.spec.js` covers real start/build/pause/resume/restart, native Space, host input, actual terminal loss/result mode, setup-error recovery, 900/390/320 widths, pending-boot reconnect, ten remounts, stopped detached draws/listeners and frame-starved renderer teardown. `tests/component-host.mjs` serves a separate origin with real host controls. Local screenshots are ignored outputs.
 - `vite.config.js` builds standalone HTML plus stable component.js and shared assets, retaining the existing VITE_BASE override used by Pages CI and defaulting to relative assets; preview CORS supports the cross-origin harness. `public/_headers` supplies production CORS.

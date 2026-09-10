@@ -210,6 +210,7 @@ test("real unattended mission emits one terminal result",async({page})=>{
  const game=await initialized(page);
  await game.locator("#difficulty").selectOption("veteran");
  await start(game);
+ await game.getByRole("button", { name: "Start Wave", exact: true }).click();
  await game.locator("#difficulty").selectOption("normal");
  await expect.poll(()=>page.evaluate(()=>window.rounds.length),{timeout:160000}).toBe(1);
  const round=await page.evaluate(()=>window.rounds[0]);

@@ -14,6 +14,7 @@ test("switches themes, starts with 600 credits, builds and removes units", async
   await expect(page.locator("#moneyText")).toHaveText("600");
   await expect(page.locator("#designText")).toHaveText("Switchback");
   await expect(page.locator("#bossText")).not.toHaveText("Standby");
+  await expect(page.getByRole("button", { name: "Start Wave" })).toBeEnabled();
 
   await page.locator("#game canvas").click({ position: { x: 120, y: 120 } });
   await expect(page.locator("#moneyText")).toHaveText("545");

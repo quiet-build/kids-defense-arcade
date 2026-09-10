@@ -29,31 +29,35 @@
           </label>
 
           <button id="startButton" type="button">Start Mission</button>
+          <button id="waveButton" type="button" disabled>Start Wave</button>
           <button id="pauseButton" type="button" disabled>Pause</button>
         </div>
       </section>
 
       <section class="game-shell">
+        <div id="game" aria-label="Kids Defense Arcade game area"></div>
         <aside class="panel" aria-label="Game controls">
-          <div class="stat">
-            <span>Wave</span>
-            <strong id="waveText">1</strong>
-          </div>
-          <div class="stat">
-            <span>Design</span>
-            <strong id="designText">Switchback</strong>
-          </div>
-          <div class="stat">
-            <span>Base HP</span>
-            <strong id="baseText">25</strong>
-          </div>
-          <div class="stat">
-            <span>Credits</span>
-            <strong id="moneyText">600</strong>
-          </div>
-          <div class="stat">
-            <span>Boss</span>
-            <strong id="bossText">Standby</strong>
+          <div class="stats">
+            <div class="stat">
+              <span>Wave</span>
+              <strong id="waveText">1</strong>
+            </div>
+            <div class="stat">
+              <span>Base HP</span>
+              <strong id="baseText">25</strong>
+            </div>
+            <div class="stat">
+              <span>Credits</span>
+              <strong id="moneyText">600</strong>
+            </div>
+            <div class="stat">
+              <span>Design</span>
+              <strong id="designText">Switchback</strong>
+            </div>
+            <div class="stat">
+              <span>Incoming</span>
+              <strong id="bossText">Standby</strong>
+            </div>
           </div>
 
           <div class="build-menu" aria-label="Build menu">
@@ -84,9 +88,7 @@
             </button>
           </div>
 
-          <p id="message" class="message">Pick a tool, then click an empty ground tile.</p>
+          <p id="message" class="message">Place a tower beside the road, then start the wave.</p>
         </aside>
-
-        <div id="game" aria-label="Kids Defense Arcade game area"></div>
       </section>
     </div>

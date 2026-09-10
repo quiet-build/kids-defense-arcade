@@ -26,6 +26,7 @@ const ui = {
   endlessMode: container.querySelector("#endlessMode"),
   pauseButton: container.querySelector("#pauseButton"),
   startButton: container.querySelector("#startButton"),
+  waveButton: container.querySelector("#waveButton"),
   wave: container.querySelector("#waveText"),
   design: container.querySelector("#designText"),
   base: container.querySelector("#baseText"),
@@ -114,7 +115,7 @@ const themes = {
     title: "Monster Base Defense",
     subtitle: "Build fighters, traps, and short-time walls to stop the monster army.",
     readyTitle: "Ready",
-    startText: "Build units on empty ground. Kill enemies to earn credits.",
+    startText: "Place a tower beside the road, then start the wave.",
     clearText: "Mission clear. Turn on Endless Waves for a longer fight.",
     loseText: "Base destroyed. Try more Fighter Posts early, then add walls near the road.",
     blockerText: "Steel Wall deployed for a few seconds.",
@@ -152,7 +153,7 @@ const themes = {
     title: "Candy Garden Defense",
     subtitle: "Protect the rainbow cake with candy towers, chill traps, and cookie walls.",
     readyTitle: "Ready",
-    startText: "Build candy helpers on grass. Stop candy monsters to earn jelly beans.",
+    startText: "Place a candy tower beside the path, then start the wave.",
     clearText: "Garden saved. Turn on Endless Waves to keep playing.",
     loseText: "The cake was taken. Try more Lollipop Towers and Cookie Walls.",
     blockerText: "Cookie Wall placed for a few seconds.",
@@ -215,7 +216,12 @@ class BaseDefenseScene extends Phaser.Scene {
     this.difficulty = difficulties.normal;
     this.endless = false;
     this.won = false;
+    this.spawning = false;
+    this.hover = { col: -1, row: -1 };
+    this.autoStartAt = null;
     this.input.on("pointerdown", (pointer) => this.handlePointer(pointer));
+    this.input.on("pointermove", (pointer) => this.hoverTile(pointer));
+    this.input.on("pointerout", () => { this.hover = { col: -1, row: -1 }; });
     this.drawFrame();
     applyThemeUi();
     this.drawOverlay(currentTheme().readyTitle);
@@ -239,16 +245,35 @@ class BaseDefenseScene extends Phaser.Scene {
     this.money = this.difficulty.money;
     applyThemeUi();
     ui.message.textContent = currentTheme().startText;
-    this.startWave();
+    this.enterPrepare();
+  }
+
+  enterPrepare() {
+    this.spawning = false;
+    this.spawnsLeft = 0;
+    this.enemies = [];
+    this.projectiles = [];
+    this.currentLayout = roundLayouts[(this.wave - 1) % roundLayouts.length];
+    this.currentBoss = Phaser.Utils.Array.GetRandom(currentTheme().bosses);
+    ui.waveButton.disabled = false;
+    ui.boss.textContent = this.currentBoss.label;
+    this.autoStartAt = this.wave === 1 ? null : elapsed + 8000;
+    ui.message.textContent = this.wave === 1
+      ? `Wave ${this.wave}: ${this.currentLayout.name}. Incoming ${this.currentBoss.label}. Place towers, then start the wave.`
+      : `Wave ${this.wave} ready: ${this.currentLayout.name}. Incoming ${this.currentBoss.label}. Build now, or start the wave.`;
+    updateUi(this);
   }
 
   startWave() {
-    this.currentLayout = roundLayouts[(this.wave - 1) % roundLayouts.length];
-    this.currentBoss = Phaser.Utils.Array.GetRandom(currentTheme().bosses);
+    if (!this.running || this.spawning) return;
+    this.spawning = true;
+    this.autoStartAt = null;
     this.spawnsLeft = Math.round((8 + this.wave * 2.2) * this.difficulty.count);
     this.nextSpawnAt = elapsed + 280;
-    ui.boss.textContent = this.currentBoss.label;
-    ui.message.textContent = `Round ${this.wave}: ${this.currentLayout.name}. New route, new boss.`;
+    const root = ui.waveButton.getRootNode();
+    if (root.activeElement === ui.waveButton) canvasHost.focus({ preventScroll: true });
+    ui.waveButton.disabled = true;
+    ui.message.textContent = `Wave ${this.wave}: ${this.currentLayout.name}. Enemies incoming.`;
     updateUi(this);
   }
 
@@ -257,13 +282,15 @@ class BaseDefenseScene extends Phaser.Scene {
     const time = elapsed;
     this.drawFrame();
     if (this.running) {
-      this.updateSpawns(time);
+      if (!this.spawning && this.autoStartAt != null && time >= this.autoStartAt) this.startWave();
+      if (this.spawning) this.updateSpawns(time);
       this.updateBuilt(time);
       this.moveEnemies(delta / 1000, time);
       this.updateProjectiles(delta / 1000, time);
       this.checkWaveComplete();
     }
     this.drawActors(time);
+    this.drawGhost();
     if (!this.running) this.drawOverlay(this.won ? "Mission Clear" : currentTheme().readyTitle);
     updateUi(this);
   }
@@ -449,26 +476,26 @@ class BaseDefenseScene extends Phaser.Scene {
   }
 
   checkWaveComplete() {
-    if (this.spawnsLeft < 0 && this.enemies.length === 0) {
-      this.money += 35 + this.wave * 5;
-      if (!this.endless && this.wave >= 8) {
-        this.endMission(true);
-        return;
-      }
-      this.wave += 1;
-      ui.message.textContent = `Wave ${this.wave - 1} cleared. New boss incoming.`;
-      this.time.delayedCall(1500, () => {
-        if (this.running) this.startWave();
-      });
-      this.spawnsLeft = -99;
+    if (this.spawnsLeft !== -1 || this.enemies.length !== 0) return;
+    this.money += 35 + this.wave * 5;
+    this.spawnsLeft = 0;
+    this.spawning = false;
+    if (!this.endless && this.wave >= 8) {
+      this.endMission(true);
+      return;
     }
+    this.wave += 1;
+    this.enterPrepare();
   }
 
   endMission(won) {
     if (!this.running) return;
     result({ mode: `${selectedTheme}-${this.difficultyId}-${this.endless ? "endless" : "mission"}`, result: won ? "won" : "lost", wave: this.wave });
     ui.pauseButton.disabled = true;
+    ui.waveButton.disabled = true;
     this.running = false;
+    this.spawning = false;
+    this.autoStartAt = null;
     this.won = won;
     ui.message.textContent = won
       ? currentTheme().clearText
@@ -487,27 +514,13 @@ class BaseDefenseScene extends Phaser.Scene {
       return;
     }
 
+    const placement = this.placementAt(col, row);
+    if (!placement.ok) {
+      ui.message.textContent = placement.message;
+      return;
+    }
+
     const tool = currentTheme().tools[selectedTool];
-    if (isRoadTile(col, row, this.currentLayout.path) && !tool.blocksPath) {
-      ui.message.textContent = currentTheme().blockedPlacementText;
-      return;
-    }
-
-    if (!isRoadTile(col, row, this.currentLayout.path) && tool.blocksPath) {
-      ui.message.textContent = currentTheme().wallPlacementText;
-      return;
-    }
-
-    if (this.built.some((item) => item.col === col && item.row === row)) {
-      ui.message.textContent = "That tile is already occupied.";
-      return;
-    }
-
-    if (this.money < tool.cost) {
-      ui.message.textContent = `${tool.name} needs ${tool.cost} credits.`;
-      return;
-    }
-
     this.money -= tool.cost;
     this.built.push({
       ...tool,
@@ -525,7 +538,50 @@ class BaseDefenseScene extends Phaser.Scene {
     ui.message.textContent =
       selectedTool === "wall"
         ? `${tool.name} is being built. It will block after construction.`
-        : `${tool.name} is being built. More expensive units take longer.`;
+        : this.spawning
+          ? `${tool.name} is being built. More expensive units take longer.`
+          : `${tool.name} is being built. Start the wave when you are ready.`;
+  }
+
+  hoverTile(pointer) {
+    this.hover = {
+      col: Math.floor(pointer.x / TILE),
+      row: Math.floor(pointer.y / TILE),
+    };
+  }
+
+  placementAt(col, row) {
+    const tool = currentTheme().tools[selectedTool];
+    if (isRoadTile(col, row, this.currentLayout.path) && !tool.blocksPath) {
+      return { ok: false, message: currentTheme().blockedPlacementText };
+    }
+    if (!isRoadTile(col, row, this.currentLayout.path) && tool.blocksPath) {
+      return { ok: false, message: currentTheme().wallPlacementText };
+    }
+    if (this.built.some((item) => item.col === col && item.row === row)) {
+      return { ok: false, message: "That tile is already occupied." };
+    }
+    if (this.money < tool.cost) {
+      return { ok: false, message: `${tool.name} needs ${tool.cost} credits.` };
+    }
+    return { ok: true, message: "" };
+  }
+
+  drawGhost() {
+    if (!this.running || selectedTool === "remove") return;
+    const { col, row } = this.hover;
+    if (!insideGrid(col, row)) return;
+    const tool = currentTheme().tools[selectedTool];
+    const x = col * TILE + TILE / 2;
+    const y = row * TILE + TILE / 2;
+    const valid = this.placementAt(col, row).ok;
+    if (!tool.blocksPath) {
+      this.graphics.lineStyle(2, valid ? 0x4fd18b : 0xff5d6c, 0.85);
+      this.graphics.strokeCircle(x, y, tool.range);
+    }
+    this.graphics.fillStyle(tool.color, valid ? 0.22 : 0.08);
+    this.graphics.fillCircle(x, y, tool.blocksPath ? 31 : 26);
+    drawText(this, x, y, tool.icon, tool.blocksPath ? 32 : 30);
   }
 
   removeBuilt(col, row) {
@@ -607,6 +663,12 @@ class BaseDefenseScene extends Phaser.Scene {
       const slowed = time < enemy.slowUntil;
       this.graphics.fillStyle(slowed ? 0x58b9ff : enemy.color, 1);
       this.graphics.fillCircle(enemy.x, enemy.y, enemy.radius);
+      this.graphics.lineStyle(enemy.kind === "tank" || enemy.isBoss ? 5 : 2, enemy.isBoss ? 0xff9d42 : enemy.kind === "tank" ? 0x1f2937 : 0xffffff, 0.85);
+      this.graphics.strokeCircle(enemy.x, enemy.y, enemy.radius);
+      if (enemy.kind !== "tank" && !enemy.isBoss) {
+        this.graphics.fillStyle(0xfff7d6, 0.9);
+        this.graphics.fillTriangle(enemy.x + enemy.radius + 4, enemy.y, enemy.x + enemy.radius - 6, enemy.y - 7, enemy.x + enemy.radius - 6, enemy.y + 7);
+      }
       drawText(this, enemy.x, enemy.y, enemy.face, enemy.isBoss ? 26 : 20);
       this.drawHpBar(enemy);
     }
@@ -630,7 +692,7 @@ class BaseDefenseScene extends Phaser.Scene {
     this.graphics.fillStyle(currentTheme().colors.overlay, selectedTheme === "candy" ? 0.64 : 0.68);
     this.graphics.fillRect(0, 0, WIDTH, HEIGHT);
     drawText(this, WIDTH / 2, HEIGHT / 2 - 24, title, 50, "bold");
-    drawText(this, WIDTH / 2, HEIGHT / 2 + 34, "Choose difficulty, then start mission", 23, "bold");
+    drawText(this, WIDTH / 2, HEIGHT / 2 + 34, "Choose difficulty, place a tower, then start the wave", 20, "bold");
   }
 }
 
@@ -688,10 +750,12 @@ function updateUi(scene) {
 }
 
 listen(ui.startButton, "click", () => sceneRef?.startMission());
+listen(ui.waveButton, "click", () => sceneRef?.startWave());
 listen(ui.themeSelect, "change", () => {
   resume();
-  ui.pauseButton.disabled = true;
-  selectedTheme = ui.themeSelect.value;
+    ui.pauseButton.disabled = true;
+    ui.waveButton.disabled = true;
+    selectedTheme = ui.themeSelect.value;
   selectedTool = "fighter";
   applyThemeUi();
   if (!sceneRef) return;
@@ -728,7 +792,8 @@ function applyThemeUi() {
       return;
     }
     const tool = theme.tools[toolId];
-    button.innerHTML = `<span>${tool.icon}</span>${tool.name}<small>${tool.cost} credits</small>`;
+    const detail = tool.blocksPath ? `${tool.cost} credits` : `${tool.cost} · range ${tool.range}`;
+    button.innerHTML = `<span>${tool.icon}</span>${tool.name}<small>${detail}</small>`;
     button.classList.toggle("active", selectedTool === toolId);
   });
 }

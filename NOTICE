@@ -1,0 +1,25 @@
+Kids Defense Arcade
+===================
+
+Campaign level schema, objective checks and star counting are adapted from
+Server Survival:
+
+  https://github.com/pshenok/server-survival
+  Revision 01796362d3b7bfa6c85efab5e2685f4d955dc137
+  Copyright (c) 2025 Kostyantyn Pshenychnyy
+  License: MIT
+
+See `src/levels.js` for the adapted functions. No Server Survival art, maps
+or audio are included. Original candy garden drawing lives in `src/art.js`.
+
+MIT License (Server Survival):
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.

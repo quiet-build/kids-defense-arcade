@@ -1,6 +1,52 @@
 import Phaser from "phaser";
 import markup from './ui.html?raw';
 import { ownRuntime, SessionGame } from './runtime';
+import { LEVELS, calculateStars, evaluateObjectives, isToolAllowed, loadProgress, persistWin } from './levels';
+import { paintGarden, drawTower, drawEnemy, drawShot, drawCrumbs } from './art';
+
+const TILE = 80, COLS = 12, ROWS = 8, WIDTH = COLS * TILE, HEIGHT = ROWS * TILE;
+const PACKS = {
+  gumdrop: { kind: "monster", label: "Gumdrop", color: 0xff8aa5, hp: 36, speed: 48, reward: 11, damage: 1, radius: 16 },
+  swarm: { kind: "monster", label: "Jelly bean", color: 0xffb347, hp: 20, speed: 64, reward: 7, damage: 1, radius: 13 },
+  fast: { kind: "soldier", label: "Gummy raider", color: 0x55c8ff, hp: 32, speed: 80, reward: 13, damage: 1, radius: 15 },
+};
+const difficulties = {
+  rookie: { hp: 0.82, speed: 0.86, count: 0.88, reward: 1.15, hearts: 2 },
+  normal: { hp: 1, speed: 1, count: 1, reward: 1, hearts: 0 },
+  veteran: { hp: 1.22, speed: 1.12, count: 1.1, reward: 0.9, hearts: -2 },
+};
+const themes = {
+  candy: {
+    title: "Candy Garden",
+    subtitle: "Protect the cake.",
+    startText: "Place a candy tower beside the path, then start the wave.",
+    loseText: "The cake was taken. Cover the path sooner.",
+    blockedPlacementText: "Candy towers need grass beside the path.",
+    wallPlacementText: "Cookie Walls must be placed on the candy path.",
+    tools: {
+      fighter: { name: "Lollipop Tower", role: "Fast single", cost: 40, refund: 20, range: 145, damage: 12, cooldown: 550, color: 0xef5f8f, blocksPath: false },
+      rocket: { name: "Cupcake Cannon", role: "Splash", cost: 75, refund: 38, range: 175, damage: 27, cooldown: 1020, color: 0x36a985, blocksPath: false },
+      frost: { name: "Snow Cone Trap", role: "Slow", cost: 60, refund: 30, range: 118, damage: 5, cooldown: 850, slowMs: 1300, color: 0x58b9ff, blocksPath: false },
+      wall: { name: "Cookie Wall", role: "Brief block", cost: 35, refund: 18, durationMs: 6500, color: 0xe3a44f, blocksPath: true },
+    },
+    art: { bg: 0xdff3c8, tileA: 0xd5eeb8, tileB: 0xc8e6a8, road: 0xf0c56e, roadEdge: 0xd9a24c, icing: 0xfff4c8, bloom: 0xff8fb8, bloomCore: 0xfff6fb, gate: 0x7bc47f, gateTop: 0xe35d86, cake: 0xf3c6a0, frosting: 0xfff6fb, cherry: 0xe35d86 },
+  },
+  monster: {
+    title: "Monster Base Defense",
+    subtitle: "Hold the gate.",
+    startText: "Place a tower beside the road, then start the wave.",
+    loseText: "Base destroyed. Try more towers on the corners.",
+    blockedPlacementText: "Combat units need open ground beside the road.",
+    wallPlacementText: "Walls must be placed on the road to block enemies briefly.",
+    tools: {
+      fighter: { name: "Fighter Post", role: "Fast single", cost: 55, refund: 28, range: 150, damage: 13, cooldown: 560, color: 0x4fd18b, blocksPath: false },
+      rocket: { name: "Rocket Squad", role: "Splash", cost: 95, refund: 48, range: 190, damage: 32, cooldown: 1120, color: 0xff9d42, blocksPath: false },
+      frost: { name: "Freeze Trap", role: "Slow", cost: 70, refund: 35, range: 118, damage: 5, cooldown: 850, slowMs: 1200, color: 0x58b9ff, blocksPath: false },
+      wall: { name: "Steel Wall", role: "Brief block", cost: 45, refund: 20, durationMs: 6500, color: 0xa8b4c8, blocksPath: true },
+    },
+    art: { bg: 0x243028, tileA: 0x2c3b31, tileB: 0x24342a, road: 0x6a7460, roadEdge: 0x3f483c, icing: 0x9aa58c, bloom: 0x4fd18b, bloomCore: 0xdff8ca, gate: 0x4a5c4e, gateTop: 0x94a3b8, cake: 0x445044, frosting: 0x8aa090, cherry: 0xe05055 },
+  },
+};
 
 export function mount(container, ready = () => {}, result = () => {}) {
 container.innerHTML = markup;
@@ -16,9 +62,15 @@ container.addEventListener('pointerdown', event => {
 let disposed = false;
 let paused = false;
 let elapsed = 0;
-
+let selectedTool = "fighter";
+let selectedTheme = "candy";
+let selectedLevelId = 1;
+let sceneRef = null;
+let resultSent = false;
+const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const ui = {
+  app: container.querySelector(".app"),
   title: container.querySelector("#gameTitle"),
   subtitle: container.querySelector("#gameSubtitle"),
   themeSelect: container.querySelector("#themeSelect"),
@@ -27,204 +79,66 @@ const ui = {
   pauseButton: container.querySelector("#pauseButton"),
   startButton: container.querySelector("#startButton"),
   waveButton: container.querySelector("#waveButton"),
+  nextButton: container.querySelector("#nextButton"),
   wave: container.querySelector("#waveText"),
   design: container.querySelector("#designText"),
   base: container.querySelector("#baseText"),
   money: container.querySelector("#moneyText"),
   boss: container.querySelector("#bossText"),
   message: container.querySelector("#message"),
+  briefing: container.querySelector("#briefing"),
+  debrief: container.querySelector("#debrief"),
+  briefTitle: container.querySelector("#briefTitle"),
+  briefBody: container.querySelector("#briefBody"),
+  briefGoals: container.querySelector("#briefGoals"),
+  levelKicker: container.querySelector("#levelKicker"),
+  levelPicks: container.querySelector("#levelPicks"),
+  goalLine: container.querySelector("#goalLine"),
+  debriefTitle: container.querySelector("#debriefTitle"),
+  debriefBody: container.querySelector("#debriefBody"),
+  debriefStars: container.querySelector("#debriefStars"),
+  debriefGoals: container.querySelector("#debriefGoals"),
+  debriefHint: container.querySelector("#debriefHint"),
+  debriefKicker: container.querySelector("#debriefKicker"),
   toolButtons: [...container.querySelectorAll(".tool-card")],
 };
 
-const TILE = 80;
-const COLS = 12;
-const ROWS = 8;
-const WIDTH = COLS * TILE;
-const HEIGHT = ROWS * TILE;
-const roundLayouts = [
-  {
-    name: "Switchback",
-    path: [
-      [0, 4],
-      [2, 4],
-      [2, 2],
-      [4, 2],
-      [4, 6],
-      [7, 6],
-      [7, 3],
-      [9, 3],
-      [9, 5],
-      [11, 5],
-    ],
-  },
-  {
-    name: "North Gate",
-    path: [
-      [0, 2],
-      [3, 2],
-      [3, 5],
-      [5, 5],
-      [5, 1],
-      [8, 1],
-      [8, 4],
-      [11, 4],
-    ],
-  },
-  {
-    name: "Twin Bend",
-    path: [
-      [0, 5],
-      [1, 5],
-      [1, 1],
-      [4, 1],
-      [4, 4],
-      [6, 4],
-      [6, 6],
-      [10, 6],
-      [10, 2],
-      [11, 2],
-    ],
-  },
-  {
-    name: "Long March",
-    path: [
-      [0, 3],
-      [2, 3],
-      [2, 6],
-      [5, 6],
-      [5, 3],
-      [7, 3],
-      [7, 1],
-      [10, 1],
-      [10, 5],
-      [11, 5],
-    ],
-  },
-];
-
-const STARTING_MONEY = 600;
-
-const difficulties = {
-  rookie: { base: 32, money: STARTING_MONEY, hp: 0.82, speed: 0.86, count: 0.88, reward: 1.2 },
-  normal: { base: 25, money: STARTING_MONEY, hp: 1, speed: 1, count: 1, reward: 1 },
-  veteran: { base: 20, money: STARTING_MONEY, hp: 1.25, speed: 1.14, count: 1.18, reward: 0.88 },
-};
-
-const themes = {
-  monster: {
-    title: "Monster Base Defense",
-    subtitle: "Build fighters, traps, and short-time walls to stop the monster army.",
-    readyTitle: "Ready",
-    startText: "Place a tower beside the road, then start the wave.",
-    clearText: "Mission clear. Turn on Endless Waves for a longer fight.",
-    loseText: "Base destroyed. Try more Fighter Posts early, then add walls near the road.",
-    blockerText: "Steel Wall deployed for a few seconds.",
-    blockedPlacementText: "Combat units need open ground beside the road.",
-    wallPlacementText: "Walls must be placed on the road to block enemies briefly.",
-    baseIcon: "🏰",
-    colors: {
-      bg: 0x202822,
-      tileA: 0x253527,
-      tileB: 0x223024,
-      road: 0x606c5b,
-      roadCenter: 0x3f483c,
-      overlay: 0x101827,
-      text: "#eef5ff",
-      stroke: "#101827",
-    },
-    tools: {
-      fighter: { name: "Fighter Post", cost: 55, refund: 28, range: 150, damage: 13, cooldown: 560, color: 0x4fd18b, icon: "🪖", blocksPath: false },
-      rocket: { name: "Rocket Squad", cost: 95, refund: 48, range: 190, damage: 32, cooldown: 1120, color: 0xff9d42, icon: "🚀", blocksPath: false },
-      frost: { name: "Freeze Trap", cost: 70, refund: 35, range: 118, damage: 5, cooldown: 850, slowMs: 1200, color: 0x58b9ff, icon: "❄️", blocksPath: false },
-      wall: { name: "Steel Wall", cost: 45, refund: 20, durationMs: 6500, color: 0xa8b4c8, icon: "🧱", blocksPath: true },
-    },
-    enemies: [
-      { kind: "monster", label: "Monster", face: "👹", color: 0xe05055, hp: 52, speed: 58, reward: 18, damage: 1 },
-      { kind: "soldier", label: "Evil Soldier", face: "🪖", color: 0x6d7480, hp: 70, speed: 50, reward: 24, damage: 1 },
-      { kind: "tank", label: "Tank", face: "🚜", color: 0x334155, hp: 155, speed: 31, reward: 48, damage: 3 },
-    ],
-    bosses: [
-      { label: "Iron Tank Boss", face: "🛡️", color: 0x94a3b8, hp: 2.0, speed: 0.7, reward: 95, damage: 5 },
-      { label: "Lava Monster", face: "🔥", color: 0xff6b35, hp: 1.55, speed: 0.95, reward: 82, damage: 4 },
-      { label: "Shadow Commander", face: "☠️", color: 0x7c3aed, hp: 1.7, speed: 0.88, reward: 88, damage: 4 },
-    ],
-  },
-  candy: {
-    title: "Candy Garden Defense",
-    subtitle: "Protect the rainbow cake with candy towers, chill traps, and cookie walls.",
-    readyTitle: "Ready",
-    startText: "Place a candy tower beside the path, then start the wave.",
-    clearText: "Garden saved. Turn on Endless Waves to keep playing.",
-    loseText: "The cake was taken. Try more Lollipop Towers and Cookie Walls.",
-    blockerText: "Cookie Wall placed for a few seconds.",
-    blockedPlacementText: "Candy towers need grass beside the path.",
-    wallPlacementText: "Cookie Walls must be placed on the candy path.",
-    baseIcon: "🎂",
-    colors: {
-      bg: 0xdff8ca,
-      tileA: 0xd9f3c3,
-      tileB: 0xceecb8,
-      road: 0xf6c36f,
-      roadCenter: 0xfff1b6,
-      overlay: 0xffffff,
-      text: "#25314d",
-      stroke: "#ffffff",
-    },
-    tools: {
-      fighter: { name: "Lollipop Tower", cost: 40, refund: 20, range: 145, damage: 12, cooldown: 550, color: 0xef5f8f, icon: "🍭", blocksPath: false },
-      rocket: { name: "Cupcake Cannon", cost: 75, refund: 38, range: 175, damage: 27, cooldown: 1020, color: 0x36a985, icon: "🧁", blocksPath: false },
-      frost: { name: "Snow Cone Trap", cost: 60, refund: 30, range: 118, damage: 5, cooldown: 850, slowMs: 1300, color: 0x58b9ff, icon: "🍧", blocksPath: false },
-      wall: { name: "Cookie Wall", cost: 35, refund: 18, durationMs: 6500, color: 0xe3a44f, icon: "🍪", blocksPath: true },
-    },
-    enemies: [
-      { kind: "monster", label: "Candy Monster", face: "🍬", color: 0xffb347, hp: 46, speed: 58, reward: 16, damage: 1 },
-      { kind: "soldier", label: "Gummy Raider", face: "🍮", color: 0x55c8ff, hp: 68, speed: 50, reward: 22, damage: 1 },
-      { kind: "tank", label: "Chocolate Tank", face: "🍫", color: 0x8f5b3f, hp: 145, speed: 31, reward: 44, damage: 3 },
-    ],
-    bosses: [
-      { label: "Marshmallow Giant", face: "☁️", color: 0xff8fc7, hp: 1.7, speed: 0.82, reward: 88, damage: 4 },
-      { label: "Jelly King", face: "🍮", color: 0x55c8ff, hp: 1.55, speed: 0.96, reward: 82, damage: 4 },
-      { label: "Cookie Queen", face: "🍪", color: 0xe3a44f, hp: 1.75, speed: 0.88, reward: 86, damage: 4 },
-    ],
-  },
-};
-
-let selectedTool = "fighter";
-let selectedTheme = "monster";
-let sceneRef = null;
-
 class BaseDefenseScene extends Phaser.Scene {
-  constructor() {
-    super("BaseDefenseScene");
-  }
+  constructor() { super("BaseDefenseScene"); }
 
   create() {
     sceneRef = this;
     this.graphics = this.add.graphics();
-    this.labels = [];
     this.built = [];
     this.enemies = [];
     this.projectiles = [];
+    this.crumbs = [];
     this.running = false;
+    this.ended = false;
     this.wave = 1;
-    this.baseHp = 25;
-    this.money = STARTING_MONEY;
+    this.level = LEVELS[0];
+    this.currentLayout = this.level.layout;
+    this.baseHp = this.level.base;
+    this.startHp = this.level.base;
+    this.money = this.level.budget;
+    this.startMoney = this.level.budget;
     this.spawnsLeft = 0;
     this.nextSpawnAt = 0;
-    this.currentBoss = null;
-    this.currentLayout = roundLayouts[0];
+    this.currentBoss = this.level.boss;
     this.difficulty = difficulties.normal;
     this.endless = false;
     this.won = false;
     this.spawning = false;
     this.hover = { col: -1, row: -1 };
-    this.autoStartAt = null;
+    this.leaks = 0;
+    this.kills = 0;
+    this.combatSec = 0;
+    this.hurtUntil = 0;
     this.input.on("pointerdown", (pointer) => this.handlePointer(pointer));
     this.input.on("pointermove", (pointer) => this.hoverTile(pointer));
     this.input.on("pointerout", () => { this.hover = { col: -1, row: -1 }; });
-    this.drawFrame();
     applyThemeUi();
-    this.drawOverlay(currentTheme().readyTitle);
+    renderBriefing();
     updateUi(this);
     if (!disposed) ready();
   }
@@ -233,7 +147,8 @@ class BaseDefenseScene extends Phaser.Scene {
     resume();
     this.clearMission();
     elapsed = 0;
-    ui.pauseButton.disabled = false;
+    resultSent = false;
+    this.ended = false;
     this.running = true;
     this.won = false;
     this.wave = 1;
@@ -241,9 +156,19 @@ class BaseDefenseScene extends Phaser.Scene {
     this.endless = ui.endlessMode.checked;
     this.difficultyId = ui.difficulty.value;
     this.difficulty = difficulties[this.difficultyId];
-    this.baseHp = this.difficulty.base;
-    this.money = this.difficulty.money;
+    this.level = LEVELS[selectedLevelId - 1];
+    this.currentLayout = this.level.layout;
+    this.startHp = Math.max(4, this.level.base + this.difficulty.hearts);
+    this.baseHp = this.startHp;
+    this.startMoney = this.level.budget;
+    this.money = this.level.budget;
+    this.currentBoss = this.level.boss;
+    this.leaks = 0;
+    this.kills = 0;
+    this.combatSec = 0;
     applyThemeUi();
+    ui.pauseButton.disabled = false;
+    ui.debrief.classList.add("hidden");
     ui.message.textContent = currentTheme().startText;
     this.enterPrepare();
   }
@@ -253,22 +178,18 @@ class BaseDefenseScene extends Phaser.Scene {
     this.spawnsLeft = 0;
     this.enemies = [];
     this.projectiles = [];
-    this.currentLayout = roundLayouts[(this.wave - 1) % roundLayouts.length];
-    this.currentBoss = Phaser.Utils.Array.GetRandom(currentTheme().bosses);
     ui.waveButton.disabled = false;
-    ui.boss.textContent = this.currentBoss.label;
-    this.autoStartAt = this.wave === 1 ? null : elapsed + 8000;
-    ui.message.textContent = this.wave === 1
-      ? `Wave ${this.wave}: ${this.currentLayout.name}. Incoming ${this.currentBoss.label}. Place towers, then start the wave.`
-      : `Wave ${this.wave} ready: ${this.currentLayout.name}. Incoming ${this.currentBoss.label}. Build now, or start the wave.`;
+    ui.boss.textContent = this.level.incoming;
+    const total = this.level.waves.length;
+    ui.message.textContent = `Wave ${this.wave} of ${total}. Incoming ${this.level.incoming}. Place towers, then start the wave.`;
     updateUi(this);
   }
 
   startWave() {
-    if (!this.running || this.spawning) return;
+    if (!this.running || this.spawning || this.ended) return;
     this.spawning = true;
-    this.autoStartAt = null;
-    this.spawnsLeft = Math.round((8 + this.wave * 2.2) * this.difficulty.count);
+    const wave = this.level.waves[(this.wave - 1) % this.level.waves.length];
+    this.spawnsLeft = Math.max(1, Math.round(wave.count * this.difficulty.count));
     this.nextSpawnAt = elapsed + 280;
     const root = ui.waveButton.getRootNode();
     if (root.activeElement === ui.waveButton) canvasHost.focus({ preventScroll: true });
@@ -278,20 +199,32 @@ class BaseDefenseScene extends Phaser.Scene {
   }
 
   update(_time, delta) {
-    elapsed += delta;
+    if (this.running && !this.ended) elapsed += delta;
     const time = elapsed;
-    this.drawFrame();
-    if (this.running) {
-      if (!this.spawning && this.autoStartAt != null && time >= this.autoStartAt) this.startWave();
-      if (this.spawning) this.updateSpawns(time);
-      this.updateBuilt(time);
+    this.graphics.clear();
+    paintGarden(this.graphics, { cols: COLS, rows: ROWS, tile: TILE, path: this.currentLayout.path, theme: currentTheme().art, reduced });
+    if (this.running && !this.ended) {
+      if (this.spawning) {
+        this.combatSec += delta / 1000;
+        this.updateSpawns(time);
+      }
+      this.updateBuilt(time, delta);
       this.moveEnemies(delta / 1000, time);
       this.updateProjectiles(delta / 1000, time);
       this.checkWaveComplete();
     }
+    this.crumbs = this.crumbs.filter((c) => c.until > time);
+    for (const c of this.crumbs) {
+      c.x += c.vx * delta / 1000;
+      c.y += c.vy * delta / 1000;
+    }
     this.drawActors(time);
     this.drawGhost();
-    if (!this.running) this.drawOverlay(this.won ? "Mission Clear" : currentTheme().readyTitle);
+    if (time < this.hurtUntil) {
+      this.graphics.fillStyle(0xe35d86, 0.12);
+      this.graphics.fillRect(0, 0, WIDTH, HEIGHT);
+    }
+    drawCrumbs(this.graphics, this.crumbs, time);
     updateUi(this);
   }
 
@@ -299,9 +232,8 @@ class BaseDefenseScene extends Phaser.Scene {
     if (this.spawnsLeft > 0 && time >= this.nextSpawnAt) {
       this.spawnsLeft -= 1;
       this.spawnEnemy(false);
-      this.nextSpawnAt = time + Math.max(360, 980 - this.wave * 22);
+      this.nextSpawnAt = time + Math.max(280, 720 - this.wave * 18);
     }
-
     const bossAlive = this.enemies.some((enemy) => enemy.isBoss);
     if (this.spawnsLeft === 0 && !bossAlive) {
       this.spawnEnemy(true);
@@ -310,20 +242,11 @@ class BaseDefenseScene extends Phaser.Scene {
   }
 
   spawnEnemy(isBoss) {
-    const theme = currentTheme();
+    const wave = this.level.waves[(this.wave - 1) % this.level.waves.length];
     const base = isBoss
-      ? {
-          kind: "boss",
-          label: this.currentBoss.label,
-          face: this.currentBoss.face,
-          color: this.currentBoss.color,
-          hp: 210 + this.wave * 55,
-          speed: 33 * this.currentBoss.speed,
-          reward: this.currentBoss.reward,
-          damage: this.currentBoss.damage,
-        }
-      : Phaser.Utils.Array.GetRandom(theme.enemies);
-    const hp = base.hp * this.difficulty.hp * (isBoss ? this.currentBoss.hp : 1) + this.wave * (isBoss ? 18 : 7);
+      ? { ...this.level.boss, color: this.level.boss.color, hp: 120 + this.wave * 28, speed: 30 * this.level.boss.speed, reward: this.level.boss.reward, damage: this.level.boss.damage, radius: 26 }
+      : PACKS[wave.pack];
+    const hp = base.hp * this.difficulty.hp * (isBoss ? this.level.boss.hp : 1);
     this.enemies.push({
       ...base,
       x: this.currentLayout.path[0][0] * TILE + TILE / 2,
@@ -333,49 +256,43 @@ class BaseDefenseScene extends Phaser.Scene {
       maxHp: hp,
       speed: base.speed * this.difficulty.speed,
       reward: Math.round(base.reward * this.difficulty.reward),
-      radius: isBoss ? 27 : base.kind === "tank" ? 23 : 18,
+      radius: isBoss ? 26 : base.radius,
       isBoss,
       slowUntil: 0,
+      flashUntil: 0,
       blockedUntil: 0,
       blocker: null,
     });
   }
 
-  updateBuilt(time) {
+  updateBuilt(time, delta) {
     for (let i = this.built.length - 1; i >= 0; i -= 1) {
       const item = this.built[i];
       if (isBuilding(item, time)) continue;
-      if (item.kind === "wall" && item.expiresAt === null) {
-        item.expiresAt = time + item.durationMs;
-      }
-      if (item.kind === "wall" && time >= item.expiresAt) {
-        this.built.splice(i, 1);
+      if (item.kind === "wall") {
+        if (this.spawning) {
+          item.remainingMs -= delta;
+          if (item.remainingMs <= 0) this.built.splice(i, 1);
+        }
         continue;
       }
-      if (item.kind === "wall" || time < item.readyAt) continue;
-
+      if (time < item.readyAt) continue;
       const target = this.findTarget(item);
       if (!target) continue;
-
       item.readyAt = time + item.cooldown;
-      if (item.kind === "frost") {
-        target.slowUntil = Math.max(target.slowUntil, time + item.slowMs);
-      }
+      item.kickUntil = time + 90;
+      if (item.kind === "frost") target.slowUntil = Math.max(target.slowUntil, time + item.slowMs);
       this.projectiles.push({
-        x: item.x,
-        y: item.y,
-        target,
+        x: item.x, y: item.y, target,
         speed: item.kind === "rocket" ? 330 : 430,
-        damage: item.damage,
-        color: item.color,
+        damage: item.damage, color: item.color,
         splash: item.kind === "rocket" ? 38 : 0,
       });
     }
   }
 
   findTarget(item) {
-    let best = null;
-    let bestProgress = -1;
+    let best = null, bestProgress = -1;
     for (const enemy of this.enemies) {
       const distance = Phaser.Math.Distance.Between(item.x, item.y, enemy.x, enemy.y);
       if (distance <= item.range && enemy.pathIndex > bestProgress) {
@@ -390,37 +307,33 @@ class BaseDefenseScene extends Phaser.Scene {
     for (let i = this.enemies.length - 1; i >= 0; i -= 1) {
       const enemy = this.enemies[i];
       if (time < enemy.blockedUntil) continue;
-
       const wall = this.findBlockingWall(enemy);
       if (wall) {
         enemy.blockedUntil = time + 520;
-        enemy.blocker = wall;
         wall.hp -= enemy.isBoss ? 2 : 1;
         if (wall.hp <= 0) this.built = this.built.filter((item) => item !== wall);
         continue;
       }
-
       const target = this.currentLayout.path[enemy.pathIndex];
       const tx = target[0] * TILE + TILE / 2;
       const ty = target[1] * TILE + TILE / 2;
-      const dx = tx - enemy.x;
-      const dy = ty - enemy.y;
-      const dist = Math.hypot(dx, dy);
+      const dist = Math.hypot(tx - enemy.x, ty - enemy.y);
       const slow = time < enemy.slowUntil ? 0.48 : 1;
       const step = enemy.speed * slow * dt;
-
       if (dist <= step) {
         enemy.x = tx;
         enemy.y = ty;
         enemy.pathIndex += 1;
         if (enemy.pathIndex >= this.currentLayout.path.length) {
           this.enemies.splice(i, 1);
+          this.leaks += 1;
           this.baseHp -= enemy.damage;
+          this.hurtUntil = time + 220;
           if (this.baseHp <= 0) this.endMission(false);
         }
       } else {
-        enemy.x += (dx / dist) * step;
-        enemy.y += (dy / dist) * step;
+        enemy.x += ((tx - enemy.x) / dist) * step;
+        enemy.y += ((ty - enemy.y) / dist) * step;
       }
     }
   }
@@ -428,26 +341,23 @@ class BaseDefenseScene extends Phaser.Scene {
   findBlockingWall(enemy) {
     return this.built.find((item) => {
       if (item.kind !== "wall" || isBuilding(item, elapsed)) return false;
-      const distance = Phaser.Math.Distance.Between(item.x, item.y, enemy.x, enemy.y);
-      return distance < 42;
+      return Phaser.Math.Distance.Between(item.x, item.y, enemy.x, enemy.y) < 42;
     });
   }
 
-  updateProjectiles(dt) {
+  updateProjectiles(dt, time) {
     for (let i = this.projectiles.length - 1; i >= 0; i -= 1) {
       const projectile = this.projectiles[i];
       if (!this.enemies.includes(projectile.target)) {
         this.projectiles.splice(i, 1);
         continue;
       }
-
       const dx = projectile.target.x - projectile.x;
       const dy = projectile.target.y - projectile.y;
       const dist = Math.hypot(dx, dy);
       const step = projectile.speed * dt;
-
       if (dist <= step) {
-        this.hitEnemy(projectile.target, projectile.damage, projectile.splash);
+        this.hitEnemy(projectile.target, projectile.damage, projectile.splash, time);
         this.projectiles.splice(i, 1);
       } else {
         projectile.x += (dx / dist) * step;
@@ -456,31 +366,45 @@ class BaseDefenseScene extends Phaser.Scene {
     }
   }
 
-  hitEnemy(target, damage, splash) {
-    target.hp -= damage;
+  hitEnemy(target, damage, splash, time) {
+    const hurt = (enemy, amount) => {
+      enemy.hp -= amount;
+      enemy.flashUntil = time + 80;
+    };
+    hurt(target, damage);
     if (splash > 0) {
       for (const enemy of this.enemies) {
         if (enemy === target) continue;
-        const distance = Phaser.Math.Distance.Between(target.x, target.y, enemy.x, enemy.y);
-        if (distance <= splash) enemy.hp -= Math.round(damage * 0.38);
+        if (Phaser.Math.Distance.Between(target.x, target.y, enemy.x, enemy.y) <= splash) hurt(enemy, Math.round(damage * 0.38));
       }
     }
-
     const killed = this.enemies.filter((enemy) => enemy.hp <= 0);
-    if (killed.length === 0) return;
-
     for (const enemy of killed) {
       this.money += enemy.reward;
+      this.kills += 1;
+      if (!reduced) {
+        for (let n = 0; n < 6; n += 1) {
+          this.crumbs.push({
+            x: enemy.x, y: enemy.y,
+            vx: (Math.random() - 0.5) * 90,
+            vy: (Math.random() - 0.5) * 90,
+            r: 3 + Math.random() * 3,
+            color: enemy.color,
+            life: 280,
+            until: time + 280,
+          });
+        }
+      }
     }
     this.enemies = this.enemies.filter((enemy) => enemy.hp > 0);
   }
 
   checkWaveComplete() {
-    if (this.spawnsLeft !== -1 || this.enemies.length !== 0) return;
-    this.money += 35 + this.wave * 5;
+    if (this.ended || this.spawnsLeft !== -1 || this.enemies.length !== 0) return;
+    this.money += 20 + this.wave * 4;
     this.spawnsLeft = 0;
     this.spawning = false;
-    if (!this.endless && this.wave >= 8) {
+    if (!this.endless && this.wave >= this.level.waves.length) {
       this.endMission(true);
       return;
     }
@@ -489,110 +413,98 @@ class BaseDefenseScene extends Phaser.Scene {
   }
 
   endMission(won) {
-    if (!this.running) return;
-    result({ mode: `${selectedTheme}-${this.difficultyId}-${this.endless ? "endless" : "mission"}`, result: won ? "won" : "lost", wave: this.wave });
-    ui.pauseButton.disabled = true;
-    ui.waveButton.disabled = true;
+    if (!this.running || this.ended) return;
+    this.ended = true;
     this.running = false;
     this.spawning = false;
-    this.autoStartAt = null;
     this.won = won;
-    ui.message.textContent = won
-      ? currentTheme().clearText
-      : currentTheme().loseText;
+    ui.pauseButton.disabled = true;
+    ui.waveButton.disabled = true;
+    const played = this.kills + this.leaks > 0;
+    if (won && !played) this.won = false;
+    const stats = {
+      won: this.won,
+      played,
+      leaks: this.leaks,
+      baseHp: Math.max(0, this.baseHp),
+      money: this.money,
+      startMoney: this.startMoney,
+      builtKinds: new Set(this.built.map((item) => item.kind)),
+    };
+    const results = evaluateObjectives(this.level, stats);
+    const stars = this.won ? calculateStars(this.level, results, this.combatSec) : 0;
+    if (this.won) persistWin(this.level.id, stars);
+    if (!resultSent) {
+      resultSent = true;
+      result({ mode: `${selectedTheme}-${this.difficultyId}-${this.endless ? "endless" : "mission"}`, result: this.won ? "won" : "lost", wave: this.wave });
+    }
+    showDebrief(this, results, stars);
   }
 
   handlePointer(pointer) {
-    if (!this.running) return;
-
+    if (!this.running || this.ended) return;
     const col = Math.floor(pointer.x / TILE);
     const row = Math.floor(pointer.y / TILE);
     if (!insideGrid(col, row)) return;
-
-    if (selectedTool === "remove") {
-      this.removeBuilt(col, row);
+    if (selectedTool === "remove") { this.removeBuilt(col, row); return; }
+    if (!isToolAllowed(this.level, selectedTool)) {
+      ui.message.textContent = "This garden does not use that treat yet.";
       return;
     }
-
     const placement = this.placementAt(col, row);
-    if (!placement.ok) {
-      ui.message.textContent = placement.message;
-      return;
-    }
-
+    if (!placement.ok) { ui.message.textContent = placement.message; return; }
     const tool = currentTheme().tools[selectedTool];
     this.money -= tool.cost;
     this.built.push({
       ...tool,
       kind: selectedTool,
-      col,
-      row,
+      col, row,
       x: col * TILE + TILE / 2,
       y: row * TILE + TILE / 2,
       readyAt: elapsed + buildTimeFor(tool),
       buildStartedAt: elapsed,
       buildReadyAt: elapsed + buildTimeFor(tool),
       hp: selectedTool === "wall" ? 8 : 1,
-      expiresAt: null,
+      remainingMs: selectedTool === "wall" ? tool.durationMs : 0,
+      kickUntil: 0,
     });
-    ui.message.textContent =
-      selectedTool === "wall"
-        ? `${tool.name} is being built. It will block after construction.`
-        : this.spawning
-          ? `${tool.name} is being built. More expensive units take longer.`
-          : `${tool.name} is being built. Start the wave when you are ready.`;
+    ui.message.textContent = `${tool.name} is being built. Start the wave when you are ready.`;
   }
 
   hoverTile(pointer) {
-    this.hover = {
-      col: Math.floor(pointer.x / TILE),
-      row: Math.floor(pointer.y / TILE),
-    };
+    this.hover = { col: Math.floor(pointer.x / TILE), row: Math.floor(pointer.y / TILE) };
   }
 
   placementAt(col, row) {
     const tool = currentTheme().tools[selectedTool];
-    if (isRoadTile(col, row, this.currentLayout.path) && !tool.blocksPath) {
-      return { ok: false, message: currentTheme().blockedPlacementText };
-    }
-    if (!isRoadTile(col, row, this.currentLayout.path) && tool.blocksPath) {
-      return { ok: false, message: currentTheme().wallPlacementText };
-    }
-    if (this.built.some((item) => item.col === col && item.row === row)) {
-      return { ok: false, message: "That tile is already occupied." };
-    }
-    if (this.money < tool.cost) {
-      return { ok: false, message: `${tool.name} needs ${tool.cost} credits.` };
-    }
+    if (isRoadTile(col, row, this.currentLayout.path) && !tool.blocksPath) return { ok: false, message: currentTheme().blockedPlacementText };
+    if (!isRoadTile(col, row, this.currentLayout.path) && tool.blocksPath) return { ok: false, message: currentTheme().wallPlacementText };
+    if (this.built.some((item) => item.col === col && item.row === row)) return { ok: false, message: "That tile is already occupied." };
+    if (this.money < tool.cost) return { ok: false, message: `${tool.name} needs ${tool.cost} jelly.` };
     return { ok: true, message: "" };
   }
 
   drawGhost() {
-    if (!this.running || selectedTool === "remove") return;
+    if (!this.running || this.ended || selectedTool === "remove") return;
     const { col, row } = this.hover;
     if (!insideGrid(col, row)) return;
     const tool = currentTheme().tools[selectedTool];
-    const x = col * TILE + TILE / 2;
-    const y = row * TILE + TILE / 2;
-    const valid = this.placementAt(col, row).ok;
+    const x = col * TILE + TILE / 2, y = row * TILE + TILE / 2;
+    const valid = this.placementAt(col, row).ok && isToolAllowed(this.level, selectedTool);
     if (!tool.blocksPath) {
-      this.graphics.lineStyle(2, valid ? 0x4fd18b : 0xff5d6c, 0.85);
+      this.graphics.lineStyle(2, valid ? 0x7bc47f : 0xe35d86, 0.85);
       this.graphics.strokeCircle(x, y, tool.range);
     }
     this.graphics.fillStyle(tool.color, valid ? 0.22 : 0.08);
     this.graphics.fillCircle(x, y, tool.blocksPath ? 31 : 26);
-    drawText(this, x, y, tool.icon, tool.blocksPath ? 32 : 30);
   }
 
   removeBuilt(col, row) {
     const index = this.built.findIndex((item) => item.col === col && item.row === row);
-    if (index === -1) {
-      ui.message.textContent = "Nothing to remove on that tile.";
-      return;
-    }
+    if (index === -1) { ui.message.textContent = "Nothing to remove on that tile."; return; }
     const [removed] = this.built.splice(index, 1);
     this.money += removed.refund;
-    ui.message.textContent = `${removed.name} removed. Refunded ${removed.refund} credits.`;
+    ui.message.textContent = `${removed.name} removed. Refunded ${removed.refund} jelly.`;
   }
 
   clearMission() {
@@ -600,162 +512,127 @@ class BaseDefenseScene extends Phaser.Scene {
     this.built = [];
     this.enemies = [];
     this.projectiles = [];
-    this.currentBoss = null;
-    this.currentLayout = roundLayouts[0];
-  }
-
-  drawFrame() {
-    this.labels.forEach((label) => label.destroy());
-    this.labels = [];
-    this.graphics.clear();
-    const theme = currentTheme();
-    this.graphics.fillStyle(theme.colors.bg, 1);
-    this.graphics.fillRect(0, 0, WIDTH, HEIGHT);
-
-    for (let row = 0; row < ROWS; row += 1) {
-      for (let col = 0; col < COLS; col += 1) {
-        this.graphics.fillStyle((row + col) % 2 === 0 ? theme.colors.tileA : theme.colors.tileB, 1);
-        this.graphics.fillRoundedRect(col * TILE + 4, row * TILE + 4, TILE - 8, TILE - 8, 7);
-      }
-    }
-
-    this.graphics.lineStyle(50, theme.colors.road, 1);
-    this.strokeRoad();
-    this.graphics.lineStyle(20, theme.colors.roadCenter, 1);
-    this.strokeRoad();
-    const end = this.currentLayout.path[this.currentLayout.path.length - 1];
-    drawText(this, end[0] * TILE + TILE / 2, end[1] * TILE + TILE / 2, theme.baseIcon, 42);
-  }
-
-  strokeRoad() {
-    this.graphics.beginPath();
-    this.currentLayout.path.forEach(([col, row], index) => {
-      const x = col * TILE + TILE / 2;
-      const y = row * TILE + TILE / 2;
-      if (index === 0) this.graphics.moveTo(x, y);
-      else this.graphics.lineTo(x, y);
-    });
-    this.graphics.strokePath();
+    this.crumbs = [];
+    this.ended = false;
   }
 
   drawActors(time) {
-    for (const item of this.built) {
-      const alpha = item.kind === "wall" ? Math.max(0.35, (item.expiresAt - time) / item.durationMs) : 1;
-      const building = isBuilding(item, time);
-      this.graphics.fillStyle(item.color, building ? 0.14 : item.kind === "wall" ? alpha : 0.25);
-      this.graphics.fillCircle(item.x, item.y, item.kind === "wall" ? 31 : 26);
-      drawText(this, item.x, item.y, item.icon, item.kind === "wall" ? 32 : 30);
-      if (building) {
-        const progress = buildProgress(item, time);
-        this.graphics.fillStyle(0x101827, 0.82);
-        this.graphics.fillRoundedRect(item.x - 28, item.y + 30, 56, 7, 3);
-        this.graphics.fillStyle(0xffd166, 1);
-        this.graphics.fillRoundedRect(item.x - 28, item.y + 30, 56 * progress, 7, 3);
-        drawText(this, item.x, item.y - 32, "BUILD", 12, "bold");
-      }
-      if (item.kind === "wall") {
-        this.graphics.fillStyle(0xff5d6c, 1);
-        this.graphics.fillRoundedRect(item.x - 26, item.y + 29, 52 * (item.hp / 8), 6, 3);
-      }
-    }
-
-    for (const enemy of this.enemies) {
-      const slowed = time < enemy.slowUntil;
-      this.graphics.fillStyle(slowed ? 0x58b9ff : enemy.color, 1);
-      this.graphics.fillCircle(enemy.x, enemy.y, enemy.radius);
-      this.graphics.lineStyle(enemy.kind === "tank" || enemy.isBoss ? 5 : 2, enemy.isBoss ? 0xff9d42 : enemy.kind === "tank" ? 0x1f2937 : 0xffffff, 0.85);
-      this.graphics.strokeCircle(enemy.x, enemy.y, enemy.radius);
-      if (enemy.kind !== "tank" && !enemy.isBoss) {
-        this.graphics.fillStyle(0xfff7d6, 0.9);
-        this.graphics.fillTriangle(enemy.x + enemy.radius + 4, enemy.y, enemy.x + enemy.radius - 6, enemy.y - 7, enemy.x + enemy.radius - 6, enemy.y + 7);
-      }
-      drawText(this, enemy.x, enemy.y, enemy.face, enemy.isBoss ? 26 : 20);
-      this.drawHpBar(enemy);
-    }
-
-    for (const projectile of this.projectiles) {
-      this.graphics.fillStyle(projectile.color, 1);
-      this.graphics.fillCircle(projectile.x, projectile.y, projectile.splash > 0 ? 8 : 6);
-    }
-  }
-
-  drawHpBar(enemy) {
-    const width = enemy.isBoss ? 70 : 44;
-    const ratio = Math.max(0, enemy.hp / enemy.maxHp);
-    this.graphics.fillStyle(0x101827, 1);
-    this.graphics.fillRoundedRect(enemy.x - width / 2, enemy.y - enemy.radius - 14, width, 7, 3);
-    this.graphics.fillStyle(enemy.isBoss ? 0xff9d42 : 0x4fd18b, 1);
-    this.graphics.fillRoundedRect(enemy.x - width / 2, enemy.y - enemy.radius - 14, width * ratio, 7, 3);
-  }
-
-  drawOverlay(title) {
-    this.graphics.fillStyle(currentTheme().colors.overlay, selectedTheme === "candy" ? 0.64 : 0.68);
-    this.graphics.fillRect(0, 0, WIDTH, HEIGHT);
-    drawText(this, WIDTH / 2, HEIGHT / 2 - 24, title, 50, "bold");
-    drawText(this, WIDTH / 2, HEIGHT / 2 + 34, "Choose difficulty, place a tower, then start the wave", 20, "bold");
+    for (const item of this.built) drawTower(this.graphics, item, time, isBuilding(item, time));
+    for (const enemy of this.enemies) drawEnemy(this.graphics, enemy, time);
+    for (const projectile of this.projectiles) drawShot(this.graphics, projectile);
   }
 }
 
-function drawText(scene, x, y, text, size, weight = "normal") {
-  const label = scene.add
-    .text(x, y, text, {
-      fontFamily: "Arial, sans-serif",
-      fontSize: `${size}px`,
-      fontStyle: weight,
-      color: currentTheme().colors.text,
-      stroke: currentTheme().colors.stroke,
-      strokeThickness: size > 30 ? 5 : 3,
-    })
-    .setOrigin(0.5);
-  scene.labels.push(label);
-}
-
-function insideGrid(col, row) {
-  return col >= 0 && col < COLS && row >= 0 && row < ROWS;
-}
-
+function insideGrid(col, row) { return col >= 0 && col < COLS && row >= 0 && row < ROWS; }
 function isRoadTile(col, row, route) {
   for (let i = 0; i < route.length - 1; i += 1) {
-    const [ax, ay] = route[i];
-    const [bx, by] = route[i + 1];
-    const minX = Math.min(ax, bx);
-    const maxX = Math.max(ax, bx);
-    const minY = Math.min(ay, by);
-    const maxY = Math.max(ay, by);
-    if (col >= minX && col <= maxX && row >= minY && row <= maxY) return true;
+    const [ax, ay] = route[i], [bx, by] = route[i + 1];
+    if (col >= Math.min(ax, bx) && col <= Math.max(ax, bx) && row >= Math.min(ay, by) && row <= Math.max(ay, by)) return true;
   }
   return false;
 }
+function buildTimeFor(tool) { return Math.round(450 + tool.cost * 18); }
+function isBuilding(item, time) { return time < item.buildReadyAt; }
+function currentTheme() { return themes[selectedTheme]; }
+function currentLevel() { return LEVELS[selectedLevelId - 1]; }
 
-function buildTimeFor(tool) {
-  return Math.round(450 + tool.cost * 18);
+function renderBriefing() {
+  const level = currentLevel();
+  const progress = loadProgress();
+  ui.levelKicker.textContent = `Garden ${level.id} of ${LEVELS.length}`;
+  ui.briefTitle.textContent = level.title;
+  ui.briefBody.textContent = level.brief;
+  ui.briefGoals.innerHTML = [...level.objectives.primary, ...level.objectives.bonus].map((o) => `<li>${o.label}</li>`).join("");
+  ui.levelPicks.innerHTML = "";
+  for (const item of LEVELS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = item.title;
+    button.disabled = item.id > progress.unlocked;
+    button.classList.toggle("active", item.id === selectedLevelId);
+    button.addEventListener("click", () => { selectedLevelId = item.id; selectedTool = "fighter"; applyThemeUi(); renderBriefing(); });
+    ui.levelPicks.append(button);
+  }
 }
 
-function isBuilding(item, time) {
-  return time < item.buildReadyAt;
-}
-
-function buildProgress(item, time) {
-  const total = item.buildReadyAt - item.buildStartedAt;
-  if (total <= 0) return 1;
-  return Phaser.Math.Clamp((time - item.buildStartedAt) / total, 0, 1);
+function showDebrief(scene, results, stars) {
+  const level = scene.level;
+  ui.debrief.classList.remove("hidden");
+  ui.debriefKicker.textContent = scene.won ? "Garden saved" : "Garden lost";
+  ui.debriefTitle.textContent = scene.won ? "The cake is safe." : "The cake was taken.";
+  ui.debriefBody.textContent = scene.won
+    ? `${stars} star${stars === 1 ? "" : "s"} in ${Math.round(scene.combatSec)}s.`
+    : currentTheme().loseText;
+  ui.debriefStars.textContent = scene.won ? "★".repeat(stars) + "☆".repeat(3 - stars) : "☆☆☆";
+  const rows = [...level.objectives.primary, ...level.objectives.bonus];
+  ui.debriefGoals.innerHTML = rows.map((o) => {
+    const met = results.primary[o.id] || results.bonus[o.id];
+    return `<li class="${met ? "met" : ""}">${met ? "Done" : "Missed"}: ${o.label}</li>`;
+  }).join("");
+  ui.debriefHint.textContent = scene.won
+    ? (stars < 3 ? "Try a cleaner cake or a thriftier build for more stars." : "Every treat did its job.")
+    : level.id === 2
+      ? "Cupcakes help when the path is crowded."
+      : level.id === 3
+        ? "Slow the fast raiders before they reach the cake."
+        : "Lollipops belong on the bends, not the far grass.";
+  const progress = loadProgress();
+  const hasNext = scene.won && selectedLevelId < LEVELS.length && progress.unlocked >= selectedLevelId + 1;
+  ui.nextButton.disabled = !hasNext;
+  ui.message.textContent = scene.won ? ui.debriefBody.textContent : currentTheme().loseText;
 }
 
 function updateUi(scene) {
-  ui.wave.textContent = String(scene.wave);
+  const total = scene.level.waves.length;
+  ui.wave.textContent = scene.endless ? String(scene.wave) : `${scene.wave}/${total}`;
   ui.design.textContent = scene.currentLayout.name;
   ui.base.textContent = String(Math.max(0, scene.baseHp));
   ui.money.textContent = String(scene.money);
   if (!scene.currentBoss) ui.boss.textContent = "Standby";
+  ui.goalLine.textContent = scene.level.brief;
+  ui.app.dataset.phase = scene.ended ? "ended" : scene.running ? "play" : "idle";
+  ui.app.dataset.layout = scene.currentLayout.name;
+  ui.app.dataset.built = String(scene.built.length);
+  ui.app.dataset.spawning = scene.spawning ? "1" : "0";
+}
+
+function applyThemeUi() {
+  const theme = currentTheme();
+  const level = currentLevel();
+  ui.title.textContent = theme.title;
+  ui.subtitle.textContent = theme.subtitle;
+  ui.toolButtons.forEach((button) => {
+    const toolId = button.dataset.tool;
+    if (toolId === "remove") {
+      button.innerHTML = `<span class="glyph bin" aria-hidden="true"></span>Remove<small>Refund half</small>`;
+      button.disabled = false;
+      button.classList.toggle("active", selectedTool === "remove");
+      return;
+    }
+    const tool = theme.tools[toolId];
+    const allowed = isToolAllowed(level, toolId);
+    button.innerHTML = `<span class="glyph ${toolId === "fighter" ? "lolly" : toolId === "rocket" ? "cake" : toolId === "frost" ? "cone" : "cookie"}" aria-hidden="true"></span>${tool.name}<small>${tool.role} · ${tool.cost}</small>`;
+    button.disabled = !allowed;
+    button.hidden = false;
+    button.classList.toggle("active", selectedTool === toolId);
+  });
 }
 
 listen(ui.startButton, "click", () => sceneRef?.startMission());
 listen(ui.waveButton, "click", () => sceneRef?.startWave());
+listen(ui.nextButton, "click", () => {
+  if (ui.nextButton.disabled) return;
+  selectedLevelId = Math.min(LEVELS.length, selectedLevelId + 1);
+  selectedTool = "fighter";
+  applyThemeUi();
+  renderBriefing();
+  sceneRef?.startMission();
+});
 listen(ui.themeSelect, "change", () => {
   resume();
-    ui.pauseButton.disabled = true;
-    ui.waveButton.disabled = true;
-    selectedTheme = ui.themeSelect.value;
+  ui.pauseButton.disabled = true;
+  ui.waveButton.disabled = true;
+  selectedTheme = ui.themeSelect.value;
   selectedTool = "fighter";
   applyThemeUi();
   if (!sceneRef) return;
@@ -763,40 +640,18 @@ listen(ui.themeSelect, "change", () => {
   sceneRef.running = false;
   sceneRef.won = false;
   sceneRef.wave = 1;
-  sceneRef.baseHp = difficulties[ui.difficulty.value].base;
-  sceneRef.money = STARTING_MONEY;
-  sceneRef.drawFrame();
-  sceneRef.drawOverlay(currentTheme().readyTitle);
+  sceneRef.baseHp = currentLevel().base;
+  sceneRef.money = currentLevel().budget;
+  renderBriefing();
   updateUi(sceneRef);
 });
 ui.toolButtons.forEach((button) => {
   listen(button, "click", () => {
+    if (button.disabled) return;
     selectedTool = button.dataset.tool;
     ui.toolButtons.forEach((item) => item.classList.toggle("active", item === button));
   });
 });
-
-function currentTheme() {
-  return themes[selectedTheme];
-}
-
-function applyThemeUi() {
-  const theme = currentTheme();
-  ui.title.textContent = theme.title;
-  ui.subtitle.textContent = theme.subtitle;
-  ui.toolButtons.forEach((button) => {
-    const toolId = button.dataset.tool;
-    if (toolId === "remove") {
-      button.innerHTML = "<span>🛠️</span>Remove<small>refund 50%</small>";
-      button.classList.toggle("active", selectedTool === "remove");
-      return;
-    }
-    const tool = theme.tools[toolId];
-    const detail = tool.blocksPath ? `${tool.cost} credits` : `${tool.cost} · range ${tool.range}`;
-    button.innerHTML = `<span>${tool.icon}</span>${tool.name}<small>${detail}</small>`;
-    button.classList.toggle("active", selectedTool === toolId);
-  });
-}
 
 let disposeRuntime = () => {};
 const canvasHost = container.querySelector("#game");
@@ -811,7 +666,7 @@ new SessionGame({
   width: WIDTH,
   height: HEIGHT,
   parent: canvasHost,
-  backgroundColor: "#202822",
+  backgroundColor: "#dff3c8",
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,

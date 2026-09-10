@@ -194,13 +194,13 @@ async function start(game){await game.getByRole("button",{name:"Start Mission",e
 async function assertPlaying(game){await expect(game.getByRole("button",{name:"Pause",exact:true})).toBeEnabled();}
 async function assertPaused(game){await expect(game.getByRole("button",{name:"Resume",exact:true})).toBeVisible();}
 async function resume(game){await game.getByRole("button",{name:"Resume",exact:true}).click();}
-async function restart(game){await start(game);await expect(game.locator("#moneyText")).toHaveText("600");}
+async function restart(game){await start(game);await expect(game.locator("#moneyText")).toHaveText("160");}
 test("native Space selects a tool, touch places it and restart resets credits",async({page})=>{
  const game=await initialized(page);await start(game);
- await game.getByRole("button",{name:/Rocket Squad/}).focus();await page.keyboard.press("Space");
+ await game.getByRole("button",{name:/Lollipop Tower/}).focus();await page.keyboard.press("Space");
  const box=await game.locator("canvas").boundingBox();
  await page.touchscreen.tap(box.x+box.width*1.5/12,box.y+box.height*1.5/8);
- await expect(game.locator("#moneyText")).toHaveText("505");
+ await expect(game.locator("#moneyText")).toHaveText("120");
  await game.getByRole("button",{name:"Pause",exact:true}).focus();await page.keyboard.press("Space");
  await assertPaused(game);
  await resume(game);await restart(game);
@@ -208,13 +208,13 @@ test("native Space selects a tool, touch places it and restart resets credits",a
 test("real unattended mission emits one terminal result",async({page})=>{
  test.setTimeout(180000);
  const game=await initialized(page);
- await game.locator("#difficulty").selectOption("veteran");
+ await game.locator("#difficulty").selectOption("veteran", { force: true });
  await start(game);
  await game.getByRole("button", { name: "Start Wave", exact: true }).click();
- await game.locator("#difficulty").selectOption("normal");
+ await game.locator("#difficulty").selectOption("normal", { force: true });
  await expect.poll(()=>page.evaluate(()=>window.rounds.length),{timeout:160000}).toBe(1);
  const round=await page.evaluate(()=>window.rounds[0]);
- expect(round).toMatchObject({gameId:"defense-arcade",mode:"monster-veteran-mission",result:"lost"});
+ expect(round).toMatchObject({gameId:"defense-arcade",mode:"candy-veteran-mission",result:"lost"});
  await expect(game.locator("#baseText")).toHaveText("0");
  await restart(game);
  expect(await page.evaluate(()=>window.rounds.length)).toBe(1);

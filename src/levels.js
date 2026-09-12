@@ -24,33 +24,33 @@ export const LAYOUTS = {
 export const LEVELS = [
   {
     id: 1,
-    title: "Corner Garden",
-    brief: "Lollipops hit one monster at a time. Cover the bends.",
+    title: "Perimeter",
+    brief: "Pulse turrets hit one drone at a time. Cover the bends.",
     layout: LAYOUTS.switchback,
     budget: 160,
     base: 8,
     durationSec: 90,
     allowedTools: ["fighter", "wall", "remove"],
     waves: [
-      { count: 5, pack: "gumdrop" },
-      { count: 6, pack: "gumdrop" },
-      { count: 7, pack: "gumdrop" },
+      { count: 5, pack: "scout" },
+      { count: 6, pack: "scout" },
+      { count: 7, pack: "scout" },
     ],
-    boss: { label: "Marshmallow Giant", kind: "boss", color: 0xff8fc7, hp: 1.35, speed: 0.82, reward: 40, damage: 2 },
-    incoming: "Marshmallow Giant",
+    boss: { label: "Heavy carrier", kind: "boss", color: 0xff8fc7, hp: 1.35, speed: 0.82, reward: 40, damage: 2 },
+    incoming: "Heavy carrier",
     objectives: {
-      primary: [{ id: "defend", label: "Keep the cake" }],
+      primary: [{ id: "defend", label: "Protect the core" }],
       bonus: [
-        { id: "whole", label: "Cake unbitten" },
-        { id: "thrifty", label: "Spend 120 jelly or less" },
+        { id: "whole", label: "No breaches" },
+        { id: "thrifty", label: "Spend 120 credits or less" },
       ],
     },
-    failConditions: { cakeGone: true },
+    failConditions: { coreGone: true },
   },
   {
     id: 2,
-    title: "Cookie Path",
-    brief: "Cupcakes splash. Use them when the path fills up.",
+    title: "Crowd control",
+    brief: "Mortars hit clusters. Cover a long stretch of the route.",
     layout: LAYOUTS.longMarch,
     budget: 220,
     base: 8,
@@ -61,21 +61,21 @@ export const LEVELS = [
       { count: 11, pack: "swarm" },
       { count: 13, pack: "swarm" },
     ],
-    boss: { label: "Jelly King", kind: "boss", color: 0x55c8ff, hp: 1.4, speed: 0.9, reward: 44, damage: 2 },
-    incoming: "Jelly King",
+    boss: { label: "Siege carrier", kind: "boss", color: 0x55c8ff, hp: 1.4, speed: 0.9, reward: 44, damage: 2 },
+    incoming: "Siege carrier",
     objectives: {
-      primary: [{ id: "defend", label: "Keep the cake" }],
+      primary: [{ id: "defend", label: "Protect the core" }],
       bonus: [
-        { id: "healthy", label: "Cake at 5 hearts or more" },
-        { id: "splash", label: "Build a cupcake cannon" },
+        { id: "healthy", label: "Keep at least 5 integrity" },
+        { id: "splash", label: "Land 8 splash hits" },
       ],
     },
-    failConditions: { cakeGone: true },
+    failConditions: { coreGone: true },
   },
   {
     id: 3,
-    title: "Ice Cream Slope",
-    brief: "Fast raiders slip past. Slow them, then pop them.",
+    title: "Fast response",
+    brief: "Interceptors move fast. Slow them inside your turret coverage.",
     layout: LAYOUTS.northGate,
     budget: 200,
     base: 8,
@@ -86,18 +86,46 @@ export const LEVELS = [
       { count: 8, pack: "fast" },
       { count: 9, pack: "fast" },
     ],
-    boss: { label: "Cookie Queen", kind: "boss", color: 0xe3a44f, hp: 1.45, speed: 0.92, reward: 48, damage: 2 },
-    incoming: "Cookie Queen",
+    boss: { label: "Strike carrier", kind: "boss", color: 0xe3a44f, hp: 1.45, speed: 0.92, reward: 48, damage: 2 },
+    incoming: "Strike carrier",
     objectives: {
-      primary: [{ id: "defend", label: "Keep the cake" }],
+      primary: [{ id: "defend", label: "Protect the core" }],
       bonus: [
-        { id: "whole", label: "Cake unbitten" },
-        { id: "chill", label: "Build a snow cone" },
+        { id: "whole", label: "No breaches" },
+        { id: "chill", label: "Destroy 5 slowed drones" },
       ],
     },
-    failConditions: { cakeGone: true },
+    failConditions: { coreGone: true },
+  },
+  {
+    id: 4,
+    title: "Relay siege",
+    brief: "Read the next wave. Combine pulse, mortar and stasis to hold the relay.",
+    layout: { name: "Relay sector", path: [[0, 2], [3, 2], [3, 5], [7, 5], [7, 2], [10, 2], [10, 6], [11, 6]] },
+    budget: 240,
+    base: 12,
+    durationSec: 300,
+    open: true,
+    allowedTools: ["fighter", "rocket", "frost", "wall", "remove"],
+    waves: [
+      { title: "Probe", income: 75, hint: "Cover both bends with pulse turrets.", groups: [{ pack: "scout", count: 14, at: 0, gap: 1100 }], boss: false },
+      { title: "Swarm front", income: 50, hint: "A dense cluster is coming. Mortars reward shared coverage.", groups: [{ pack: "swarm", count: 72, at: 0, gap: 100 }, { pack: "scout", count: 10, at: 10000, gap: 850 }], boss: false },
+      { title: "Fast flank", income: 60, hint: "Fast interceptors arrive at 12s. Slow them near your pulse turrets.", groups: [{ pack: "scout", count: 12, at: 0, gap: 850 }, { pack: "fast", count: 18, at: 12000, gap: 500 }], boss: false },
+      { title: "Crossfire", income: 75, hint: "Swarm first, interceptors at 10s. Keep both responses funded.", groups: [{ pack: "swarm", count: 80, at: 0, gap: 95 }, { pack: "fast", count: 22, at: 10000, gap: 440 }], boss: false },
+      { title: "Relay siege", income: 0, hint: "A carrier follows the swarm. Keep the exit covered for fast escorts.", groups: [{ pack: "swarm", count: 96, at: 0, gap: 90 }, { pack: "fast", count: 28, at: 12000, gap: 420 }], boss: true },
+    ],
+    boss: { label: "Command carrier", kind: "boss", color: 0xff8768, hp: 4.2, speed: 0.9, reward: 40, damage: 4 },
+    incoming: "Command carrier",
+    objectives: { primary: [{ id: "defend", label: "Hold all five waves" }], bonus: [{ id: "healthy", label: "Keep at least 5 integrity" }, { id: "combined", label: "20 splash hits and 10 slowed takedowns" }] },
+    failConditions: { coreGone: true },
   },
 ];
+
+// One deterministic timeline feeds both the live wave and the forecast.
+export function waveSchedule(wave, countMultiplier = 1) {
+  const groups = wave.groups || [{ pack: wave.pack, count: wave.count, at: 0, gap: 700 }];
+  return groups.flatMap(group => Array.from({ length: Math.max(1, Math.round(group.count * countMultiplier)) }, (_, i) => ({ pack: group.pack, at: group.at + i * group.gap }))).sort((a, b) => a.at - b.at);
+}
 
 export function isToolAllowed(level, tool) {
   if (!level?.allowedTools?.length) return true;
@@ -115,10 +143,11 @@ export function evaluateObjectives(level, stats) {
 function checkObjective(id, stats) {
   if (id === "defend") return stats.won && stats.played;
   if (id === "whole") return stats.won && stats.leaks === 0;
-  if (id === "thrifty") return stats.won && stats.startMoney - stats.money <= 120;
+  if (id === "thrifty") return stats.won && stats.spent <= 120;
   if (id === "healthy") return stats.won && stats.baseHp >= 5;
-  if (id === "splash") return stats.won && stats.builtKinds.has("rocket");
-  if (id === "chill") return stats.won && stats.builtKinds.has("frost");
+  if (id === "splash") return stats.won && stats.splashHits >= 8;
+  if (id === "chill") return stats.won && stats.slowKills >= 5;
+  if (id === "combined") return stats.won && stats.splashHits >= 20 && stats.slowKills >= 10;
   return false;
 }
 
@@ -139,7 +168,7 @@ export function loadProgress() {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
     if (!raw || typeof raw !== "object") return { unlocked: 1, completed: {} };
-    const unlocked = Number.isInteger(raw.unlocked) && raw.unlocked >= 1 ? Math.min(3, raw.unlocked) : 1;
+    const unlocked = Number.isInteger(raw.unlocked) && raw.unlocked >= 1 ? Math.min(LEVELS.length, raw.unlocked) : 1;
     const completed = raw.completed && typeof raw.completed === "object" ? raw.completed : {};
     return { unlocked, completed };
   } catch {
@@ -151,7 +180,7 @@ export function persistWin(levelId, stars) {
   const progress = loadProgress();
   const prev = progress.completed[levelId] || { stars: 0 };
   progress.completed[levelId] = { stars: Math.max(prev.stars || 0, stars) };
-  if (stars > 0) progress.unlocked = Math.max(progress.unlocked, Math.min(3, levelId + 1));
+  if (stars > 0) progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length, levelId + 1));
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); } catch { /* blocked storage still lets you play */ }
   return progress;
 }

@@ -1,36 +1,36 @@
     <div class="app" data-phase="idle">
-      <header class="hud" aria-label="Garden status">
+      <header class="hud" aria-label="Relay status">
         <div class="brand">
-          <h1 id="gameTitle">Candy Garden</h1>
-          <p id="gameSubtitle">Protect the cake.</p>
+          <h1 id="gameTitle">Relay Defense</h1>
+          <p id="gameSubtitle">Hold the core.</p>
         </div>
         <div class="meters">
-          <div class="meter cake"><span>Cake</span><strong id="baseText">8</strong></div>
-          <div class="meter jelly"><span>Jelly</span><strong id="moneyText">160</strong></div>
+          <div class="meter cake"><span>Core</span><strong id="baseText">8</strong></div>
+          <div class="meter jelly"><span>Credits</span><strong id="moneyText">160</strong></div>
           <div class="meter wave"><span>Wave</span><strong id="waveText">1</strong></div>
         </div>
         <div class="hud-actions">
+          <button id="sectorButton" type="button">Sectors</button>
           <button id="pauseButton" type="button" disabled>Pause</button>
-          <button id="startButton" type="button">Start Mission</button>
+          <button id="startButton" type="button" disabled>Start Mission</button>
         </div>
       </header>
 
+      <section class="intel" aria-label="Wave intelligence">
+        <strong id="pressure">Choose a sector to deploy</strong>
+        <p id="forecast">Three training sectors. One full-spectrum siege. Select a sector below.</p>
+      </section>
       <div class="stage">
-        <div id="game" aria-label="Candy garden battlefield"></div>
+        <div id="game" aria-label="Relay defense battlefield. Use arrow keys to choose a tile and Enter to build."></div>
         <section class="sheet briefing" id="briefing" aria-labelledby="briefTitle">
-          <p class="kicker" id="levelKicker">Garden 1 of 3</p>
-          <h2 id="briefTitle">Corner Garden</h2>
-          <p id="briefBody">Lollipops hit one monster at a time. Cover the bends.</p>
+          <button id="closeBriefing" class="close-briefing" type="button" aria-label="Close setup">×</button>
+          <p class="kicker" id="levelKicker">Training 1 of 3</p>
+          <h2 id="briefTitle">Perimeter</h2>
+          <p id="briefBody">Pulse turrets hit one drone at a time. Cover the bends.</p>
           <ol class="goals" id="briefGoals"></ol>
-          <div class="level-picks" id="levelPicks" role="group" aria-label="Gardens"></div>
+          <div class="level-picks" id="levelPicks" role="group" aria-label="Sectors"></div>
           <details class="setup">
             <summary>More setup</summary>
-            <label>Garden
-              <select id="themeSelect">
-                <option value="candy" selected>Candy Garden</option>
-                <option value="monster">Monster Base</option>
-              </select>
-            </label>
             <label>Difficulty
               <select id="difficulty">
                 <option value="rookie">Rookie</option>
@@ -43,39 +43,40 @@
               Endless waves
             </label>
           </details>
+          <button id="deployButton" type="button" disabled>Deploy sector</button>
         </section>
         <section class="sheet debrief hidden" id="debrief" aria-labelledby="debriefTitle">
-          <p class="kicker" id="debriefKicker">Garden closed</p>
-          <h2 id="debriefTitle">The cake is safe.</h2>
+          <p class="kicker" id="debriefKicker">Operation complete</p>
+          <h2 id="debriefTitle">Relay secured.</h2>
           <p id="debriefBody"></p>
           <p class="stars" id="debriefStars" aria-label="Stars"></p>
           <ol class="goals" id="debriefGoals"></ol>
           <p class="hint" id="debriefHint"></p>
-          <button id="nextButton" type="button">Next garden</button>
+          <button id="nextButton" type="button">Next sector</button>
         </section>
       </div>
 
       <div class="dock">
-        <div class="goal-line" id="goalLine">Keep the cake</div>
+        <div class="goal-line" id="goalLine">Protect the core</div>
         <div class="build-menu" aria-label="Build menu">
           <button class="tool-card active" data-tool="fighter" type="button">
-            <span class="glyph lolly" aria-hidden="true"></span>
-            Lollipop Tower
+            <span class="glyph fighter" aria-hidden="true"></span>
+            Pulse turret
             <small>Fast single</small>
           </button>
           <button class="tool-card" data-tool="rocket" type="button">
-            <span class="glyph cake" aria-hidden="true"></span>
-            Cupcake Cannon
-            <small>Splash</small>
+            <span class="glyph rocket" aria-hidden="true"></span>
+            Mortar
+            <small>Area damage</small>
           </button>
           <button class="tool-card" data-tool="frost" type="button">
-            <span class="glyph cone" aria-hidden="true"></span>
-            Snow Cone Trap
-            <small>Slow</small>
+            <span class="glyph frost" aria-hidden="true"></span>
+            Stasis field
+            <small>Slow targets</small>
           </button>
           <button class="tool-card" data-tool="wall" type="button">
-            <span class="glyph cookie" aria-hidden="true"></span>
-            Cookie Wall
+            <span class="glyph wall" aria-hidden="true"></span>
+            Barrier
             <small>Brief block</small>
           </button>
           <button class="tool-card danger" data-tool="remove" type="button">

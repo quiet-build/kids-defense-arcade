@@ -1,6 +1,8 @@
-# Kids Defense Arcade
+# Relay Defense
 
-A Vite + Phaser browser tower-defense game for kids.
+A modern Vite + Phaser tower-defense game. Learn pulse, mortar and stasis in three short training sectors, or jump into the five-wave Relay siege. Read the forecast, build a combined defense and protect the core.
+
+Mouse/touch: choose a tool and place it beside the route. Keyboard: focus the battlefield, choose a tile with arrows, then Enter to build. Start each wave when ready. Sectors returns to mission selection.
 
 ## Play locally
 

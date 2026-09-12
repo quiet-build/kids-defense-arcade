@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import { LEVELS, waveSchedule, evaluateObjectives } from '../src/levels.js';
+const burst=LEVELS[3].waves[2];
+const schedule=waveSchedule(burst);
+assert.equal(schedule.filter(e=>e.pack==='fast').length,18);
+assert.equal(schedule.find(e=>e.pack==='fast').at,12000);
+assert.ok(schedule.every((e,i)=>i===0||e.at>=schedule[i-1].at));
+assert.deepEqual(waveSchedule(burst),schedule);
+assert.equal(waveSchedule({groups:[{pack:'fast',count:3,at:0,gap:100}]},2).length,6);
+const stats={won:true,played:true,baseHp:8,leaks:0,spent:140,splashHits:19,slowKills:10};
+assert.equal(evaluateObjectives(LEVELS[3],stats).bonus.combined,false);
+assert.equal(evaluateObjectives(LEVELS[3],{...stats,splashHits:20}).bonus.combined,true);
+assert.equal(evaluateObjectives(LEVELS[0],stats).bonus.thrifty,false);
+console.log('Wave schedule and real-combat objectives passed.');

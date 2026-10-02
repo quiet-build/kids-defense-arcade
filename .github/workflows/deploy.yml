@@ -11,11 +11,10 @@ jobs:
       contents: write
       pages: write
       id-token: write
-    uses: quiet-build/.github/.github/workflows/deploy-arcade-component.yml@8286c17efa989220f88548ffb901f742e3302f3e
+    uses: quiet-build/.github/.github/workflows/deploy-arcade-component.yml@8f75852775e54f88430743f90ef83ad1a936b14f
     with:
-      support-sha: 8286c17efa989220f88548ffb901f742e3302f3e
-      cloudflare-project-name: kids-defense-arcade
-      cloudflare-domain: defense.playminiarcade.com
+      support-sha: 8f75852775e54f88430743f90ef83ad1a936b14f
+      game-id: defense-arcade
       prebuild-command: "node --test tests/redirect.test.mjs && node tests/waves.check.mjs"
       postbuild-command: "pnpm exec playwright install --with-deps webkit && pnpm exec playwright test --config playwright.component.config.js && pnpm exec playwright test --config playwright.config.js"
       pages-base: /kids-defense-arcade/

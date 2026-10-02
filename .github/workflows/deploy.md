@@ -1,27 +1,3 @@
-# Relay Defense
-
-A modern Vite + Phaser tower-defense game. Learn pulse, mortar and stasis in three short training sectors, or jump into the five-wave Relay siege. Read the forecast, build a combined defense and protect the core.
-
-Mouse/touch: choose a tool and place it beside the route. Keyboard: focus the battlefield, choose a tile with arrows, then Enter to build. Start each wave when ready. Sectors returns to mission selection.
-
-## Play locally
-
-```bash
-pnpm install
-pnpm run dev
-```
-
-## Build
-
-```bash
-pnpm run build
-```
-
-## GitHub Pages
-
-This repo includes a GitHub Actions workflow that builds the game and deploys
-the `dist` folder to GitHub Pages on every push to `main`.
-
-## R2 publication
+# Arcade component deployment
 
 The pinned `quiet-build/.github` arcade workflow publishes only this game to the shared `mini-arcade-assets` R2 bucket. Existing source, component, standalone and applicable PWA/bundle gates run before publication. The complete relative-base distribution is stored under a content-addressed version; CDN bytes, CORS, cache headers and real Chromium module/CSP readiness must pass before switching the game’s `https://assets.playminiarcade.com/channels/defense-arcade.js` entry. Failed verification leaves the previous entry unchanged. No Cloudflare Pages deployment or cumulative asset merge remains. Existing GitHub Pages publication, where configured, remains separate. Production writes are CI-only; update both full support SHA pins together.
